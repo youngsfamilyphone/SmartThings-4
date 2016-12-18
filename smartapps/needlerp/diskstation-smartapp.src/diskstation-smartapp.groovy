@@ -1079,7 +1079,7 @@ def checkMotionDeactivate(child) {
 
     try {
         def delay = (motionOffDelay) ? motionOffDelay : 5
-        log.trace "Motion Delay: " + delay + "s"
+//        log.trace "Motion Delay: " + delay + "s"
         delay = delay * 1 //  Changed to seconds
         if (state.lastMotion[cameraDNI] != null) {
             timeRemaining = delay - ((now() - state.lastMotion[cameraDNI])/1000)
