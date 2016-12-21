@@ -43,6 +43,8 @@ metadata {
         attribute "status", "string" //Needlerp added to allow enable/disable camera
         attribute "playStatus", "string"
         attribute "blank", "string" //blank to enable custom layout
+        attribute "vidInfo", "string"
+        attribute "vidTitle", "string"
 
         command "left"
     	command "right"
@@ -76,6 +78,9 @@ metadata {
  //NeedlerP: Additional command to disable camera
  		command "disable"
         command "enable"
+ //NeedlerP: Additional command to playback last recording
+ 		command "live"
+        command "video"
 
 	}
 
@@ -118,6 +123,13 @@ metadata {
 			tileAttribute("device.stream", key: "STREAM_URL") {
 				attributeState("activeURL", defaultState: true)
 			}
+                        /*
+			tileAttribute("device.profile", key: "STREAM_QUALITY") {
+				attributeState("1", label: "720p", action: "setProfileHD", defaultState: true)
+				attributeState("2", label: "h360p", action: "setProfileSDH", defaultState: true)
+				attributeState("3", label: "l360p", action: "setProfileSDL", defaultState: true)
+			}
+            */
        }
 
 
@@ -127,6 +139,13 @@ metadata {
 			state "image", label: "Take", action: "Image Capture.take", icon: "st.camera.take-photo", backgroundColor: "#FFFFFF", nextState:"taking"
 		}
 
+		valueTile("vidInfo", "device.vidInfo", width:2, height: 1, inactiveLabel:true) {
+			state "val", label:'${currentValue}', icon: "", defaultstate: true
+		}
+
+		valueTile("vidTitle", "device.vidTitle", width:2, height: 1, decoration: "flat" ) {
+            state "live", label:'${currentValue}', icon: ""
+		}
 		standardTile("up", "device.tiltSupported", width: 1, height: 1, canChangeIcon: false, canChangeBackground: false, decoration: "flat") {
       		state "yes", label: "up", action: "up", icon: "st.thermostat.thermostat-up"
             state "no", label: "", action: "", icon: ""
@@ -230,6 +249,13 @@ metadata {
     	  	state "disabled", label: "cam off", action: "enable", icon: "st.camera.camera",  backgroundColor: "#FF0000"
 	    }
 
+//NeedlerP: Additional functionality to turn on/off recording playback in lieu of live view
+        standardTile("playStatus", "device.playStatus", width: 2, height: 2, canChangeIcon: false, canChangeBackground: false) {
+      		state "live", label: "live", action: "video", icon: "st.camera.camera", backgroundColor: "#ffffff"
+    	  	state "video", label: "video", action: "live", icon: "st.Electronics.electronics8",  backgroundColor: "#53a7c0"
+	    }
+
+
         main(["summary"])
 
 //        getAttributes()
@@ -238,6 +264,7 @@ metadata {
 * details shortened as my cameras don't have PTZ capability
 
 		details(["videoPlayer",
+    "vidinfo", "vidTitle",
     "take", "cameraDetails",
          		"motion", "auto", "playStatus",
                 "recordStatus", "status", "refresh",
@@ -248,6 +275,7 @@ metadata {
 */
          details(["videoPlayer",
          		"take", "cameraDetails",
+            "vidTitle", "vidInfo",
          		"motion", "auto", "playStatus",
                 "recordStatus", "status", "refresh"])
 
@@ -383,6 +411,20 @@ def getCameraID() {
     	log.trace "could not find device DNI = ${device.deviceNetworkId}"
     }
     return (cameraId)
+}
+
+def getEventID() {
+        def cameraId = getCameraID()
+	   	def eventId = parent.getEventId("SYNO.SurveillanceStation.Event", "List", "cameraIds=${cameraId}&orderMethod=1&limit=1", 5)
+        log.trace "getEventID:" + eventId
+		sendEvent(name:"vidInfo", value: eventId)
+        return (eventId)
+}
+def getEventTime() {
+        def cameraId = getCameraID()
+	   	def eventTime = parent.getEventTime("SYNO.SurveillanceStation.Event", "List", "cameraIds=${cameraId}&orderMethod=1&limit=1", 5)
+        log.trace "getEventTime:" + eventTime
+        return (eventTime)
 }
 
 // handle commands
@@ -605,6 +647,24 @@ def disable() {
 	return hubAction
 }
 
+// Needlerp: Turn recording playback on/off in lieu of live view
+def video() {
+	log.trace "Set Video"
+    //def eventId = getEventId()
+	sendEvent(name:"vidTitle", value:"Playback:")
+    sendEvent(name:"vidInfo", value: eventId)
+    sendEvent(name:"playStatus", value: "video")
+//    refresh()
+}
+
+def live() {
+	log.trace "Set Live"
+    sendEvent(name:"vidTitle", value:"Live")
+    sendEvent(name:"vidInfo", value:"Stream")
+    sendEvent(name:"playStatus", value:"live")
+//    refresh()
+}
+
 void logDebug(str) {
 	if (isLogLevelDebug) {
         log.debug str
@@ -682,6 +742,9 @@ def initChild(Map capabilities)
 	sendEvent(name: "refreshState", value: "none")
     if (device.currentState("status")?.value == null) { //Needlerp
     	sendEvent(name: "status", value: "off")
+    }
+    if (device.currentState("playStatus")?.value == "Live") { //Needlerp
+		sendEvent(name: "playStatus", value: "Live")
     }
 
 }
