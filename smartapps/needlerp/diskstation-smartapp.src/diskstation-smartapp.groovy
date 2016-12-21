@@ -225,6 +225,7 @@ def getDSInfo() {
     queueDiskstationCommand("SYNO.API.Info", "Query", "query=SYNO.SurveillanceStation.Camera", 1)
     queueDiskstationCommand("SYNO.API.Info", "Query", "query=SYNO.SurveillanceStation.PTZ", 1)
     queueDiskstationCommand("SYNO.API.Info", "Query", "query=SYNO.SurveillanceStation.ExternalRecording", 1)
+    queueDiskstationCommand("SYNO.API.Info", "Query", "query=SYNO.SurveillanceStation.Event", 1)
 
     // login
     executeLoginCommand()
@@ -371,6 +372,7 @@ def determineCommandFromResponse(parsedEvent, bodyString, body) {
         	// has data
         	if (body.data.sid != null) { return getUniqueCommand("SYNO.API.Auth", "Login") }
             if (bodyString.contains("maxVersion")) { return getUniqueCommand("SYNO.API.Info", "Query") }
+            if (bodyString.contains("events")) { return getUniqueCommand("SYNO.SurveillanceStation.Event", "List") }
             if (body.data.cameras != null) { return getUniqueCommand("SYNO.SurveillanceStation.Camera", "List") }
             //if (body.data.ptzPan != null) { return getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetCapability")}
             if (body.data.ptzPan != null) { return getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetCapabilityByCamId")}
@@ -405,6 +407,7 @@ def doesCommandReturnData(uniqueCommand) {
         case getUniqueCommand("SYNO.SurveillanceStation.VideoStreaming", "Stream"):  //PMN
         	return true
         case getUniqueCommand("SYNO.SurveillanceStation.Streaming", "EventStream"):  //PMN
+        case getUniqueCommand("SYNO.SurveillanceStation.Event", "List"): //PMN
 return true
     }
 
@@ -487,9 +490,9 @@ def locationHandler(evt) {
    		// check if this is a command for the master
         if ((state.commandList.size() > 0) && (body != null) && (commandType != ""))
         {
-            Map commandData = state.commandList.first()
+          Map commandData = state.commandList.first()
 
-            //log.trace "Logging command " + bodyString
+          log.trace "Logging command " + bodyString
 
             //log.trace "master waiting on " + getUniqueCommand(commandData)
             if (getUniqueCommand(commandData) == commandType)
@@ -569,6 +572,13 @@ def locationHandler(evt) {
 
         if (commandType != "") {
         	log.trace "event = ${description}"
+            //Call to see if request for Event details
+            if (getUniqueCommand("SYNO.SurveillanceStation.Event", "List") == commandType)
+				state.eventList = body.data.events
+                def eventId = state.eventList.eventId.first()
+                log.trace "Found Event 594: " + eventId
+                return
+		} else {
 
             // guess who wants this type (commandType)
             def commandInfo = getFirstChildCommand(commandType)
@@ -583,6 +593,7 @@ def locationHandler(evt) {
                         return finalizeChildCommand(commandInfo)
                 }
             }
+        }
         }
 
         // no one wants this type or unknown type
@@ -1199,6 +1210,25 @@ def getPatrolIdByString(childDevice, name) {
     }
     return null
 }
+
+def getEventId(String api, String command, String params, int version) {
+//    log.trace "call getEventId"
+    def commandData = createCommandData(api, command, params, version)
+    sendDiskstationCommand(commandData)
+//    log.trace "EventID:" + state.eventList.eventId.first()
+	    return state.eventList.eventId.first()
+ }
+
+ def getEventTime(String api, String command, String params, int version) {
+//    log.trace "call getEventId"
+    def commandData = createCommandData(api, command, params, version)
+    sendDiskstationCommand(commandData)
+//    log.trace "EventID:" + state.eventList.eventId.first()
+//	def df = new SimpleDateFormat("dd-MM-yyyy");
+//	def EventDate  = df.format(state.eventList.startTime.first())
+	return  state.eventList.startTime.first()
+
+ }
 
 import groovy.time.TimeCategory
 
