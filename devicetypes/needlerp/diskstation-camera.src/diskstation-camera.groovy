@@ -24,7 +24,6 @@ metadata {
         capability "Refresh"
         //NeedlerP: additional live stream capabilities
   		capability "Configuration"
-        capability "Switch"
         capability "Video Camera"
 		capability "Video Capture"
 
@@ -41,7 +40,12 @@ metadata {
         attribute "recordStatus", "string" //Needlerp added due to multiple switch
         attribute "autoTake", "string"
         attribute "takeImage", "string"
-
+        attribute "status", "string" //Needlerp added to allow enable/disable camera
+        attribute "playStatus", "string"
+        attribute "blank", "string" //blank to enable custom layout
+        attribute "vidInfo", "string"
+        attribute "vidTitle", "string"
+        
         command "left"
     	command "right"
     	command "up"
@@ -71,6 +75,12 @@ metadata {
        command "start"
        command "recordon"
        command "recordoff"
+ //NeedlerP: Additional command to disable camera
+ 		command "disable"
+        command "enable"   
+ //NeedlerP: Additional command to playback last recording
+ 		command "live"
+        command "video"
 
 	}
 
@@ -113,79 +123,94 @@ metadata {
 			tileAttribute("device.stream", key: "STREAM_URL") {
 				attributeState("activeURL", defaultState: true)
 			}
+                        /*
+			tileAttribute("device.profile", key: "STREAM_QUALITY") {
+				attributeState("1", label: "720p", action: "setProfileHD", defaultState: true)
+				attributeState("2", label: "h360p", action: "setProfileSDH", defaultState: true)
+				attributeState("3", label: "l360p", action: "setProfileSDL", defaultState: true)
+			}	
+            */
        }
 
 
 		standardTile("take", "device.image", width: 2, height: 2, canChangeIcon: false, inactiveLabel: true, canChangeBackground: false) {
-			state "take", label: "Take", action: "Image Capture.take", icon: "st.camera.dropcam", backgroundColor: "#FFFFFF", nextState:"taking"
-			state "taking", label:'Taking', action: "", icon: "st.camera.dropcam", backgroundColor: "#53a7c0"
-			state "image", label: "Take", action: "Image Capture.take", icon: "st.camera.dropcam", backgroundColor: "#FFFFFF", nextState:"taking"
+			state "take", label: "Take", action: "Image Capture.take", icon: "st.camera.take-photo", backgroundColor: "#FFFFFF", nextState:"taking"
+			state "taking", label:'Taking', action: "", icon: "st.camera.take-photo", backgroundColor: "#53a7c0"
+			state "image", label: "Take", action: "Image Capture.take", icon: "st.camera.take-photo", backgroundColor: "#FFFFFF", nextState:"taking"
 		}
 
-        standardTile("up", "device.tiltSupported", width: 2, height: 2, canChangeIcon: false, canChangeBackground: false, decoration: "flat") {
+		valueTile("vidInfo", "device.vidInfo", width:2, height: 1, inactiveLabel:true) {
+			state "val", label:'${currentValue}', icon: "", defaultstate: true
+		}
+
+		valueTile("vidTitle", "device.vidTitle", width:2, height: 1, decoration: "flat" ) {
+            state "live", label:'${currentValue}', icon: "" 
+			state "video", label:'${currentValue}', icon: "st.Electronics.electronics8", defaultstate: true
+		}
+		standardTile("up", "device.tiltSupported", width: 1, height: 1, canChangeIcon: false, canChangeBackground: false, decoration: "flat") {
       		state "yes", label: "up", action: "up", icon: "st.thermostat.thermostat-up"
-            state "no", label: "unavail", action: "", icon: "st.thermostat.thermostat-up"
+            state "no", label: "", action: "", icon: ""
     	}
 
-        standardTile("down", "device.tiltSupported", width: 2, height: 2, canChangeIcon: false, canChangeBackground: false, decoration: "flat") {
+        standardTile("down", "device.tiltSupported", width: 1, height: 1, canChangeIcon: false, canChangeBackground: false, decoration: "flat") {
       		state "yes", label: "down", action: "down", icon: "st.thermostat.thermostat-down"
-            state "no", label: "unavail", action: "", icon: "st.thermostat.thermostat-down"
+            state "no", label: "", action: "", icon: ""
     	}
 
-        standardTile("left", "device.panSupported", width: 2, height: 2, canChangeIcon: false, canChangeBackground: false, decoration: "flat") {
+        standardTile("left", "device.panSupported", width: 1, height: 1, canChangeIcon: false, canChangeBackground: false, decoration: "flat") {
       		state "yes", label: "left", action: "left", icon: ""
-            state "no", label: "unavail", action: "", icon: ""
+            state "no", label: "", action: "", icon: ""
     	}
 
-		standardTile("right", "device.panSupported", width: 2, height: 2, canChangeIcon: false, canChangeBackground: false, decoration: "flat") {
+		standardTile("right", "device.panSupported", width: 1, height: 1, canChangeIcon: false, canChangeBackground: false, decoration: "flat") {
       		state "yes", label: "right", action: "right", icon: ""
-            state "no", label: "unavail", action: "", icon: ""
+            state "no", label: "", action: "", icon: ""
     	}
 
-        standardTile("zoomIn", "device.zoomSupported", width: 2, height: 2, canChangeIcon: false, canChangeBackground: false, decoration: "flat") {
+        standardTile("zoomIn", "device.zoomSupported", width: 1, height: 1, canChangeIcon: false, canChangeBackground: false, decoration: "flat") {
       		state "yes", label: "zoom in", action: "zoomIn", icon: "st.custom.buttons.add-icon"
-            state "no", label: "zoom unavail", action: "", icon: "st.custom.buttons.add-icon"
+            state "no", label: "", action: "", icon: ""
     	}
 
-        standardTile("zoomOut", "device.zoomSupported", width: 2, height: 2, canChangeIcon: false, canChangeBackground: false, decoration: "flat") {
+        standardTile("zoomOut", "device.zoomSupported", width: 1, height: 1, canChangeIcon: false, canChangeBackground: false, decoration: "flat") {
       		state "yes", label: "zoom out", action: "zoomOut", icon: "st.custom.buttons.subtract-icon"
-            state "no", label: "zoom unavail", action: "", icon: "st.custom.buttons.subtract-icon"
+            state "no", label: "", action: "", icon: ""
     	}
 
 
-        standardTile("home", "device.homeSupported", width: 2, height: 2, canChangeIcon: false, canChangeBackground: false) {
+        standardTile("home", "device.homeSupported", width: 1, height: 1, canChangeIcon: false, canChangeBackground: false) {
       		state "yes", label: "home", action: "home", icon: "st.Home.home2"
-            state "no", label: "unavail", action: "", icon: "st.Home.home2"
+            state "no", label: "", action: "", icon: ""
     	}
 
-        standardTile("presetdown", "device.curPreset", width: 2, height: 2, canChangeIcon: false, canChangeBackground: false, decoration: "flat") {
+        standardTile("presetdown", "device.curPreset", width: 1, height: 1, canChangeIcon: false, canChangeBackground: false, decoration: "flat") {
       		state "yes", label: "preset", action: "presetdown", icon: "st.thermostat.thermostat-down"
-            state "0", label: "preset", action: "", icon: "st.thermostat.thermostat-down"
+            state "no", label: "", action: "", icon: ""
     	}
 
-        standardTile("presetup", "device.curPreset", width: 2, height: 2, canChangeIcon: false, canChangeBackground: false, decoration: "flat") {
+        standardTile("presetup", "device.curPreset", width: 1, height: 1, canChangeIcon: false, canChangeBackground: false, decoration: "flat") {
       		state "yes", label: "preset", action: "presetup", icon: "st.thermostat.thermostat-up"
-            state "0", label: "preset", action: "", icon: "st.thermostat.thermostat-up"
+            state "no", label: "", action: "", icon: ""
     	}
 
-        standardTile("presetgo", "device.curPreset", width: 2, height: 2, canChangeIcon: false, canChangeBackground: false) {
+        standardTile("presetgo", "device.curPreset", width: 1, height: 1, canChangeIcon: false, canChangeBackground: false) {
       		state "yes", label: '${currentValue}', action: "presetgo", icon: "st.motion.acceleration.inactive"
-            state "0", label: "N/A", action: "", icon: "st.motion.acceleration.inactive"
+            state "no", label: "", action: "", icon: ""
     	}
 
-        standardTile("patroldown", "device.curPatrol", width: 2, height: 2, canChangeIcon: false, canChangeBackground: false, decoration: "flat") {
+        standardTile("patroldown", "device.curPatrol", width: 1, height: 1, canChangeIcon: false, canChangeBackground: false, decoration: "flat") {
       		state "yes", label: "patrol", action: "patroldown", icon: "st.thermostat.thermostat-down"
-            state "0", label: "patrol", action: "", icon: "st.thermostat.thermostat-down"
+            state "0", label: "", action: "", icon: ""
     	}
 
-        standardTile("patrolup", "device.curPatrol", width: 2, height: 2, canChangeIcon: false, canChangeBackground: false, decoration: "flat") {
+        standardTile("patrolup", "device.curPatrol", width: 1, height: 1, canChangeIcon: false, canChangeBackground: false, decoration: "flat") {
       		state "yes", label: "patrol", action: "patrolup", icon: "st.thermostat.thermostat-up"
-            state "0", label: "patrol", action: "", icon: "st.thermostat.thermostat-up"
+            state "0", label: "", action: "", icon: ""
     	}
 
-        standardTile("patrolgo", "device.curPatrol", width: 2, height: 2, canChangeIcon: false, canChangeBackground: false) {
+        standardTile("patrolgo", "device.curPatrol", width: 1, height: 1, canChangeIcon: false, canChangeBackground: false) {
       		state "yes", label: '${currentValue}', action: "patrolgo", icon: "st.motion.motion-detector.active"
-            state "0", label: "N/A", action: "", icon: "st.motion.motion-detector.active"
+            state "0", label: "", action: "", icon: ""
     	}
 
          standardTile("refresh", "device.refreshState", width: 2, height: 2, canChangeIcon: false, canChangeBackground: false) {
@@ -195,37 +220,62 @@ metadata {
     	}
 
         standardTile("recordStatus", "device.recordStatus", width: 2, height: 2, canChangeIcon: false, canChangeBackground: false) {
-      		state "off", label: "record", action: "recordon", icon: "st.camera.camera", backgroundColor: "#FFFFFF"
-    	  	state "on", label: "stop", action: "recordoff", icon: "st.camera.camera",  backgroundColor: "#53A7C0"
+      		state "off", label: "record", action: "recordon", icon: "st.Electronics.electronics8", backgroundColor: "#FFFFFF"
+    	  	state "on", label: "stop", action: "recordoff", icon: "st.Electronics.electronics8",  backgroundColor: "#53A7C0"
 	    }
 
-		standardTile("motion", "device.motion", width: 2, height: 2, canChangeIcon: true, canChangeBackground: true) {
+		standardTile("motion", "device.motion", width: 2, height: 2, canChangeIcon: false, canChangeBackground: false) {
+			state("active", label:'motion', icon:"st.motion.motion.active", backgroundColor:"#53a7c0")
+			state("inactive", label:'no motion', icon:"st.motion.motion.inactive", backgroundColor:"#ffffff")
+		}
+       
+       standardTile("summary", "device.motion", width: 2, height: 2, canChangeIcon: false, canChangeBackground: true) {  //dummy for things list
 			state("active", label:'motion', icon:"st.motion.motion.active", backgroundColor:"#53a7c0")
 			state("inactive", label:'no motion', icon:"st.motion.motion.inactive", backgroundColor:"#ffffff")
 		}
 
     	standardTile("auto", "device.autoTake", width: 2, height: 2, canChangeIcon: false, canChangeBackground: false) {
-			state "off", label: 'No Take', action: "autoTakeOn", icon: "st.motion.motion.active", backgroundColor: "#ffffff"
-			state "on", label: 'Take', action: "autoTakeOff", icon: "st.motion.motion.active", backgroundColor: "#53a7c0"
+			state "off", label: 'manual', action: "autoTakeOn", icon: "st.motion.motion.active", backgroundColor: "#ffffff"
+			state "on", label: 'auto', action: "autoTakeOff", icon: "st.motion.motion.active", backgroundColor: "#53a7c0"
 		}
 
-        main(["motion","videoPlayer"])
+//NeedlerP: Blank Tile to support layout
+        standardTile("blank", "device.blank", width: 1, height: 1, canChangeIcon: false, canChangeBackground: false) {
+      		state "yes", label: ' ', action: "", icon: ""
+    	}
+
+//NeedlerP: Additional functionality to enable / disable camera
+        standardTile("status", "device.Status", width: 2, height: 2, canChangeIcon: false, canChangeBackground: false) {
+      		state "enabled", label: "cam on", action: "disable", icon: "st.camera.camera", backgroundColor: "#FFFFFF"
+    	  	state "disabled", label: "cam off", action: "enable", icon: "st.camera.camera",  backgroundColor: "#FF0000"
+	    }
+
+//NeedlerP: Additional functionality to turn on/off recording playback in lieu of live view
+        standardTile("playStatus", "device.playStatus", width: 2, height: 2, canChangeIcon: false, canChangeBackground: false) {
+      		state "live", label: "live", action: "video", icon: "st.camera.camera", backgroundColor: "#ffffff"
+    	  	state "video", label: "video", action: "live", icon: "st.Electronics.electronics8",  backgroundColor: "#53a7c0"
+	    }
+
+
+        main(["summary"])
 
 //        getAttributes()
 
 /* Needlerp:
 * details shortened as my cameras don't have PTZ capability
-		details(["videoPlayer",
-        		"take", "motion", "recordStatus",
-          	  	"presetup", "presetgo", "presetdown",
-           	 	"patrolup", "patrolgo", "patroldown",
-           	 	"zoomIn", "up", "zoomOut",
-           	 	"left", "home", "right",
-            	"refresh", "down", "auto","cameraDetails"]) */
 
-         details(["videoPlayer",
-        		"take", "motion", "recordStatus",
-            	"refresh", "auto","cameraDetails"])
+		details(["videoPlayer", "vidinfo", "vidTitle", "take", "cameraDetails", 
+         		"motion", "auto", "playStatus",
+                "recordStatus", "status", "refresh",
+                "blank", "up", "blank", "zoomIn", "presetup", "patrolup",
+                "left", "home", "right", "blank", "presetgo", "patrolgo",
+                "blank", "down", "blank", "zoomOut", "presetdown", "patroldown"]) 
+                
+*/
+         details(["videoPlayer", 
+         		"take", "cameraDetails", "vidTitle", "vidInfo", 
+         		"motion", "auto", "playStatus",
+                "recordStatus", "status", "refresh"])
 
 	}
 
@@ -249,38 +299,79 @@ mappings {
        action:
        [GET: "getInHomeURL"]
    }
+   path("/getOutHomeURL") {
+   		action:
+        [GET: "getOutHomeURL"]
+       }
 }
 
 
 def start() {
 	def cameraId = getCameraID()
-    log.debug "Start Streaming Camera " + cameraID
+    log.debug "Start Streaming Camera " + cameraId
 
-	def hubStreamOutHome = getStreamURL_Child("SYNO.SurveillanceStation.VideoStreaming", "Stream", "cameraId=${cameraId}&format=mjpeg", 1, "OutHome")
-    log.trace "hubStreamOutHome: " + hubStreamOutHome
-    
-    def hubStreamInHome = getStreamURL_Child("SYNO.SurveillanceStation.VideoStreaming", "Stream", "cameraId=${cameraId}&format=mjpeg", 1, "InHome")
-    log.trace "hubStreamInHome: " + hubStreamInHome
-    
-    def dataLiveVideo = [
-		OutHomeURL  : "https://" + hubStreamOutHome,
-		InHomeURL   : "http://" + hubStreamInHome,
-		ThumbnailURL: "http://cdn.device-icons.smartthings.com/camera/dlink-indoor@2x.png",
-		cookie      : [key: "key", value: "value"]
-	]
+/*	if (device.currentState("playStatus")?.value == "video") {
+    	log.trace "Status: Video"
+ 		def eventId = getEventID()
+ 		log.trace "start() EventID: " + eventId
 
-	def event = [
-		name           : "stream",
-		value          : groovy.json.JsonOutput.toJson(dataLiveVideo).toString(),
-		data		   : groovy.json.JsonOutput.toJson(dataLiveVideo),
-		descriptionText: "Starting the livestream",
-		eventType      : "VIDEO",
-		displayed      : false,
-		isStateChange  : true
-	]
-//    log.trace event
-	sendEvent(event)
-    log.trace "Streaming..."
+		  def hubStreamOutHome = getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "EventStream", "eventId=${eventId}", 2, "OutHome")  
+          def hubStreamInHome = getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "EventStream", "eventId=${eventId}", 2, "InHome")       
+          
+          log.trace "Start HubStream:" + hubStreamInHome
+          
+           def dataLiveVideo = [
+                OutHomeURL  : "https://" + hubStreamOutHome,
+                InHomeURL   : "http://" + hubStreamInHome,
+                ThumbnailURL: "http://cdn.device-icons.smartthings.com/camera/dlink-indoor@2x.png",
+                cookie      : [key: "key", value: "value"]
+            ]
+        	def event = [
+            name           : "stream",
+            value          : groovy.json.JsonOutput.toJson(dataLiveVideo).toString(),
+            data		   : groovy.json.JsonOutput.toJson(dataLiveVideo),
+            descriptionText: "Starting the livestream",
+            eventType      : "VIDEO",
+            displayed      : false,
+            isStateChange  : true
+        	]
+//    		log.trace event
+			sendEvent(event)
+    		log.trace "Streaming Video..."
+        } else {
+        */
+ //           log.trace "Status: Live"
+ //             def hubStreamOutHome = getStreamURL_Child("SYNO.SurveillanceStation.VideoStreaming", "Stream", "cameraId=${cameraId}&format=mjpeg", 1, "OutHome")       
+ //             def hubStreamInHome = getStreamURL_Child("SYNO.SurveillanceStation.VideoStreaming", "Stream", "cameraId=${cameraId}&format=mjpeg", 1, "InHome")    
+
+			  def hubStreamOutHome = getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "LiveStream", "cameraId=${cameraId}", 2, "OutHome")       
+              def hubStreamInHome = getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "LiveStream", "cameraId=${cameraId}", 2, "InHome")    
+              
+              log.trace "hubStream: " + hubStreamInHome
+
+            def dataLiveVideo = [
+                OutHomeURL  : "https://" + hubStreamOutHome,
+                InHomeURL   : "http://" + hubStreamInHome,
+                ThumbnailURL: "http://cdn.device-icons.smartthings.com/camera/dlink-indoor@2x.png",
+                cookie      : [key: "key", value: "value"]
+            ]
+ 
+ 			def event = [
+            name           : "stream",
+            value          : groovy.json.JsonOutput.toJson(dataLiveVideo).toString(),
+            data		   : groovy.json.JsonOutput.toJson(dataLiveVideo),
+            descriptionText: "Starting the livestream",
+            eventType      : "VIDEO",
+            displayed      : false,
+            isStateChange  : true
+        	]
+            
+			sendEvent(event)
+            
+//			sendEvent(name:"vidTitle", value:"Live")
+//           sendEvent(name:"vidInfo", value: "Stream")
+    		log.trace "Streaming Live..."
+ //       }
 }
 
 def installed() {
@@ -303,6 +394,7 @@ def setProfile(profile) {
 }
 
 
+
 // handle commands
 def configure() {
 	log.debug "Executing 'configure'"
@@ -313,14 +405,33 @@ def configure() {
 }
 
 def getInHomeURL() {
-	def cameraId = getCameraID()
-	 [InHomeURL: "http://" + getStreamURL_Child("SYNO.SurveillanceStation.VideoStreaming", "Stream", "cameraId=${cameraId}&format=mjpeg", 1, "InHome")]
+	log.trace "getInHomeURL"
+    def cameraId = getCameraID()
+    def InHomeURL = "http://" + getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "LiveStream", "cameraId=${cameraId}", 2, "InHome")
+    log.trace "getInHomeURL: " + InHomeURL
+    [InHomeURL: InHomeURL]
+//	if (device.currentState("playStatus")?.value == "video") {
+//	def cameraId = getCameraID()
+//    [InHomeURL: "http://" + getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "EventStream", "eventId=${eventId}",2, "InHome")]
+//     } else {
+//	 def cameraId = getCameraID()
+//		}
 }
 
-def getOutHomeURL() {
+/*def getOutHomeURL() {
+    [OutHomeURL: "http://" + getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "LiveStream", "cameraId=${cameraId}", 2, "OutHome")]
+*/
+/*	log.trace "getOutHomeURL"
+	if (device.currentState("playStatus")?.value == "video") {
 	def cameraId = getCameraID()
-	 [InHomeURL: "https://" + getStreamURL_Child("SYNO.SurveillanceStation.VideoStreaming", "Stream", "cameraId=${cameraId}&format=mjpeg", 1, "OutHome")]
+    [OutHomeURL: "http://" + getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "EventStream", "eventId=${eventId}", 2, "OutHome")]
+     } else {
+	 def cameraId = getCameraID()
+		}
+ 
 }
+       */
+
 
 def putImageInS3(map) {
 	def s3ObjectContent
@@ -334,7 +445,7 @@ def putImageInS3(map) {
 			s3ObjectContent = imageBytes.getObjectContent()
 			def bytes = new ByteArrayInputStream(s3ObjectContent.bytes)
 			storeImage(picName, bytes)
-            log.trace "image stored = " + picName
+ //           log.trace "image stored = " + picName
 		}
 
 	}
@@ -353,6 +464,20 @@ def getCameraID() {
     	log.trace "could not find device DNI = ${device.deviceNetworkId}"
     }
     return (cameraId)
+}
+
+def getEventID() {
+        def cameraId = getCameraID()
+	   	def eventId = parent.getEventId("SYNO.SurveillanceStation.Event", "List", "cameraIds=${cameraId}&orderMethod=1&limit=1", 5)
+        log.trace "getEventID:" + eventId
+		sendEvent(name:"vidInfo", value: eventId)
+        return (eventId)
+}
+def getEventTime() {
+        def cameraId = getCameraID()
+	   	def eventTime = parent.getEventTime("SYNO.SurveillanceStation.Event", "List", "cameraIds=${cameraId}&orderMethod=1&limit=1", 5)
+        log.trace "getEventTime:" + eventTime
+        return (eventTime)
 }
 
 // handle commands
@@ -375,7 +500,7 @@ def take() {
     	log.trace "take picture from camera ${cameraId} default stream"
     	hubAction = queueDiskstationCommand_Child("SYNO.SurveillanceStation.Camera", "GetSnapshot", "cameraId=${cameraId}", 1)
     }
-    log.debug "take command is: ${hubAction}"
+//    log.debug "take command is: ${hubAction}"
     hubAction
 }
 
@@ -532,15 +657,15 @@ def refresh() {
 
 // recording on / off
 def recordon() {
-	  log.trace "start recording"
+	log.trace "start recording"
     def cameraId = getCameraID()
     def hubAction = queueDiskstationCommand_Child("SYNO.SurveillanceStation.ExternalRecording", "Record", "cameraId=${cameraId}&action=start", 2)
     sendEvent(name: "recordStatus", value: "on")
-	  return hubAction
+	return hubAction
 
 }
 
-def recordoff() {
+def recordoff () {
 	log.trace "stop recording"
     def cameraId = getCameraID()
     def hubAction = queueDiskstationCommand_Child("SYNO.SurveillanceStation.ExternalRecording", "Record", "cameraId=${cameraId}&action=stop", 2)
@@ -549,11 +674,48 @@ def recordoff() {
 
 }
 
+
+
 def recordEventFailure() {
 	if (device.currentState("recordStatus")?.value == "on") {
     	// recording didn't start, turn it off
     	sendEvent(name: "recordStatus", value: "off")
     }
+}
+
+// Needlerp: Enable/Disable camera
+def enable() {
+	log.trace "Enable camera"
+    def cameraId = getCameraID()
+    def hubAction = queueDiskstationCommand_Child("SYNO.SurveillanceStation.Camera", "Enable", "cameraIds=${cameraId}", 8)
+	sendEvent(name: "Status", value: "enabled")
+	return hubAction
+}
+
+def disable() {
+	log.trace "Disable camera"
+    def cameraId = getCameraID()
+    def hubAction = queueDiskstationCommand_Child("SYNO.SurveillanceStation.Camera", "Disable", "cameraIds=${cameraId}", 8)
+    sendEvent(name: "Status", value: "disabled")
+	return hubAction
+}
+
+// Needlerp: Turn recording playback on/off in lieu of live view
+def video() {
+	log.trace "Set Video"
+    //def eventId = getEventId()
+	sendEvent(name:"vidTitle", value:"Playback:")
+    sendEvent(name:"vidInfo", value: eventId)
+    sendEvent(name:"playStatus", value: "video")
+//    refresh()
+}
+
+def live() {
+	log.trace "Set Live"
+    sendEvent(name:"vidTitle", value:"Live")
+    sendEvent(name:"vidInfo", value:"Stream")	
+    sendEvent(name:"playStatus", value:"live")
+//    refresh()
 }
 
 void logDebug(str) {
@@ -572,7 +734,8 @@ def motionActivated() {
     if (device.currentState("motion")?.value != "active") {
     	log.trace "Motion activated"
         sendEvent(name: "motion", value: "active")
-        } else {
+        sendEvent(name: "summary", value: "active", displayed: "false")
+} else {
         log.trace "Motion detected, already active, not sending an event"
     }
 }
@@ -580,6 +743,7 @@ def motionActivated() {
 def motionDeactivate() {
 	log.trace "Motion deactivated"
 	sendEvent(name: "motion", value: "inactive")
+    sendEvent(name: "summary", value: "inactive", displayed: "false")
 }
 
 def autoTakeOn() {
@@ -621,20 +785,37 @@ def initChild(Map capabilities)
     sendEvent(name: "curPatrol", value: parent.getPatrolString(this, curPatrol))
 
     sendEvent(name: "motion", value: "inactive")
-    sendEvent(name: "refreshState", value: "none")
-    sendEvent(name: "recordStatus", value: "off")
+   
     if (device.currentState("autoTake")?.value == null) {
     	sendEvent(name: "autoTake", value: "off")
     }
-
     sendEvent(name: "takeImage", value: "0")
+	sendEvent(name: "summary", value: "inactive", displayed: "false") //Needlerp
+	sendEvent(name: "recordStatus", value: "off") //Needlerp
+	sendEvent(name: "refreshState", value: "none")  
+    if (device.currentState("status")?.value == null) { //Needlerp
+    	sendEvent(name: "status", value: "off")
+    }
+    if (device.currentState("playStatus")?.value == "Live") { //Needlerp
+		sendEvent(name: "playStatus", value: "Live")    
+    }
+   if (device.currentState("vidInfo")?.value == "video") {
+	   def eventId = getEventID()
+	 	sendEvent(name:"vidTitle", value:"Player")
+    	sendEvent(name:"vidInfo", value:eventID)	
+   } else {
+     	sendEvent(name:"vidTitle", value:"Live")
+    	sendEvent(name:"vidInfo", value: "Stream" )
+        }
+
 }
 
 def queueDiskstationCommand_Child(String api, String command, String params, int version) {
     def commandData = parent.createCommandData(api, command, params, version)
+//    log.trace "CommandData:" + commandData
 	def hubAction = parent.createHubAction(commandData)
-    hubAction
-
+//    log.trace "hubAction: " + hubAction
+    return hubAction
 }
 
 def getStreamURL_Child(String api, String command, String params, int version, String location) {
