@@ -654,6 +654,7 @@ def locationHandler(evt) {
         // why are we here?
         log.trace "Did not use " + bodyString
    	}
+}
 
 def handleErrors(commandData, errorData) {
 	if (errorData) {
