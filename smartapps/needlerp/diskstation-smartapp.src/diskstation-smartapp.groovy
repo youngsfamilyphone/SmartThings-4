@@ -164,7 +164,6 @@ def cameraDiscovery()
 	state.refreshCountMotion = 0
 
     def options = camerasDiscovered() ?: []
-    log.trace "Options:" + options.size() //PMN
     def numFound = options.size() ?: 0
 
     if (state.error == "")
@@ -226,14 +225,11 @@ def getDSInfo() {
     queueDiskstationCommand("SYNO.API.Info", "Query", "query=SYNO.SurveillanceStation.Camera", 1)
     queueDiskstationCommand("SYNO.API.Info", "Query", "query=SYNO.SurveillanceStation.PTZ", 1)
     queueDiskstationCommand("SYNO.API.Info", "Query", "query=SYNO.SurveillanceStation.ExternalRecording", 1)
-    queueDiskstationCommand("SYNO.API.Info", "Query", "query=SYNO.SurveillanceStation.Event", 1)
-    
 
     // login
     executeLoginCommand()
 
     // get cameras
-  //  log.trace "get cameras" //PMN
     queueDiskstationCommand("SYNO.SurveillanceStation.Camera", "List", "additional=device", 1)
 }
 
@@ -375,7 +371,6 @@ def determineCommandFromResponse(parsedEvent, bodyString, body) {
         	// has data
         	if (body.data.sid != null) { return getUniqueCommand("SYNO.API.Auth", "Login") }
             if (bodyString.contains("maxVersion")) { return getUniqueCommand("SYNO.API.Info", "Query") }
-            if (bodyString.contains("events")) { return getUniqueCommand("SYNO.SurveillanceStation.Event", "List") }
             if (body.data.cameras != null) { return getUniqueCommand("SYNO.SurveillanceStation.Camera", "List") }
             //if (body.data.ptzPan != null) { return getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetCapability")}
             if (body.data.ptzPan != null) { return getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetCapabilityByCamId")}
@@ -402,15 +397,11 @@ def doesCommandReturnData(uniqueCommand) {
         case getUniqueCommand("SYNO.SurveillanceStation.Camera", "List"):
         case getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetCapability"):
         case getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetCapabilityByCamId"):
-        case getUniqueCommand("SYNO.SurveillanceStation.Camera", "Enable"):  //PMN
-        case getUniqueCommand("SYNO.SurveillanceStation.Camera", "Disable"):  //PMN
         case getUniqueCommand("SYNO.SurveillanceStation.PTZ", "ListPreset"):
         case getUniqueCommand("SYNO.SurveillanceStation.PTZ", "ListPatrol"):
         case getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetSnapshot"):
         case getUniqueCommand("SYNO.SurveillanceStation.VideoStreaming", "Stream"):  //PMN
-        case getUniqueCommand("SYNO.SurveillanceStation.Streaming", "EventStream"):  //PMN
-        case getUniqueCommand("SYNO.SurveillanceStation.Event", "List"): //PMN
-return true
+        	return true
     }
 
     return false
@@ -420,7 +411,8 @@ return true
 // would be much better synchronous and not having to track / guess where things are coming from
 // The event argument doesn't include any way to link it back to a particular hubAction request.
 def locationHandler(evt) {
-//	log.trace "String value: " + evt.stringValue
+
+	//log.trace "String value: " + evt.stringValue
 
 	def description = evt.description
 	def hub = evt?.hubId
@@ -428,7 +420,7 @@ def locationHandler(evt) {
 	def parsedEvent = parseEventMessage(description)
 	parsedEvent << ["hub":hub]
 
- //   log.trace "Parsed event keys: " + parsedEvent.keySet()
+    log.trace "Parsed event keys: " + parsedEvent.keySet()
 
     if ((parsedEvent.ip == convertIPtoHex(userip)) && (parsedEvent.port == convertPortToHex(userport)))
     {
@@ -487,17 +479,13 @@ def locationHandler(evt) {
 
         // gathered our incoming command data, see what we have
         def commandType = determineCommandFromResponse(parsedEvent, bodyString, body)
-//        log.trace "commandType1: " + commandType
-//        log.trace "Queue Item: " + state.commandList.size()
-//        log.trace "Command Body: " + body
-        
 
    		// check if this is a command for the master
         if ((state.commandList.size() > 0) && (body != null) && (commandType != ""))
         {
-          Map commandData = state.commandList.first()
+            Map commandData = state.commandList.first()
 
-          log.trace "Logging command " + bodyString
+            //log.trace "Logging command " + bodyString
 
             //log.trace "master waiting on " + getUniqueCommand(commandData)
             if (getUniqueCommand(commandData) == commandType)
@@ -517,7 +505,6 @@ def locationHandler(evt) {
                             	state.sid = body.data.sid
                             	break
                             case getUniqueCommand("SYNO.SurveillanceStation.Camera", "List"):
-                            	log.trace "populate SSCameraList"
                             	state.SSCameraList = body.data.cameras
                             	state.getCameraCapabilities = true;
                                 getCameraCapabilities()
@@ -550,12 +537,6 @@ def locationHandler(evt) {
                             	def cameraId = (commandData.params =~ /cameraId=([0-9]+)/) ? (commandData.params =~ /cameraId=([0-9]+)/)[0][1] : null
                             	if (cameraId) { state.cameraPatrols[cameraId.toInteger()] = body.data?.patrols }
                             	break
-                            case getUniqueCommand("SYNO.SurveillanceStation.Event", "List"):
- 								state.eventList = body.data.events
-                				def eventId = state.eventList.eventId.first()
-                				def eventTime = state.eventList.startTime.first()
-                                log.trace "Found Event 556: " + eventId
-                				break
                             default:
                                 log.debug "received invalid command: " + state.lastcommand
                             	finalizeCommand = false
@@ -583,20 +564,8 @@ def locationHandler(evt) {
         // is this a child message?
 
         if (commandType != "") {
- //       log.trace "commandType2: " + commandType
- //      	log.trace "event = ${description}"
- 
-            //Call to see if request for Event details
-            if (getUniqueCommand("SYNO.SurveillanceStation.Event", "List") == commandType)
-	           	{
-  //         		log.trace "commandType3: " + commandType
-				state.eventList = body.data.events
-                def eventId = state.eventList.eventId.first()
-                def eventTime = state.eventList.startTime.first()
-                log.trace "Found Event 594: " + eventId
-                return
-		} else {      
-        
+        	log.trace "event = ${description}"
+
             // guess who wants this type (commandType)
             def commandInfo = getFirstChildCommand(commandType)
 
@@ -608,11 +577,8 @@ def locationHandler(evt) {
                             commandInfo?.child?.putImageInS3(parsedEvent)
                         }
                         return finalizeChildCommand(commandInfo)
-                        break
                 }
-                
             }
-        }
         }
 
         // no one wants this type or unknown type
@@ -639,12 +605,6 @@ def locationHandler(evt) {
                     	def cameraId = (commandData.params =~ /cameraId=([0-9]+)/) ? (commandData.params =~ /cameraId=([0-9]+)/)[0][1] : null
                     	if (cameraId) { state.cameraPatrols[cameraId.toInteger()] = null }
                     	break
-                    case getUniqueCommand("SYNO.SurveillanceStation.Event", "List"):
-                    	state.eventList = body.data.events
-                		def eventId = state.eventList.eventId.first()
-            			def eventTime = state.eventList.startTime.first()
-log.trace "Found Event 643: " + eventId
-                        break
                     default:
                         log.debug "don't know now to handle this command " + state.lastcommand
                     	finalizeCommand = false
@@ -723,13 +683,9 @@ def checkForRedoLogin(commandData, errorData) {
 
 def handleErrorsIgnore(commandData, errorData) {
 	if (errorData) {
-	        if (errorData?.code == 117) {
-        	    log.debug "Error: Manager level access required to enable/disable cameras. Please elevate access in Surveillance Station."
-       		} else {
-    			log.trace "trying to handle error ${errorData}"
-    		}
-        }
-    	checkForRedoLogin(commandData, errorData)
+    	log.trace "trying to handle error ${errorData}"
+    }
+    checkForRedoLogin(commandData, errorData)
 }
 
 private def parseEventMessage(Map event) {
@@ -918,7 +874,6 @@ def createHubAction(Map commandData) {
 
     try {
         def url = createDiskstationURL(commandData)
-//        log.trace "URL: " + url
         if (url != null) {
             def acceptType = "application/json, text/plain, text/html, */*"
             if (commandData.acceptType) {
@@ -937,7 +892,6 @@ def createHubAction(Map commandData) {
                 }
 
             }
-//            log.trace hubaction
             return hubaction
 
         } else {
@@ -957,7 +911,7 @@ def createStreamURL(Map commandData, String location) {
     String deviceNetworkId = getDeviceId(userip, userport)
     String ip = userip + ":" + userport
     String ipOutHome = userdomain + ":" + userport2
- 
+
     try {
         def url = createDiskstationURL(commandData)
         if (url != null) {
@@ -969,13 +923,13 @@ def createStreamURL(Map commandData, String location) {
 //                log.trace hubaction
             	return hubaction
                } else {
-//               log.trace "OutHome"
+               log.trace "OutHome"
            		def hubaction = new physicalgraph.device.HubAction(
                """${ipOutHome}${url}""")
  //              log.trace hubaction
-            	return hubaction               
+            	return hubaction
                }
-            
+
 
         } else {
         	return null
@@ -1101,7 +1055,7 @@ def handleMotionCleanup() {
 	def children = getChildDevices()
     def nextTimeDefault = 120000; //1000000
     def nextTime = nextTimeDefault;
-//    log.debug "handleMotionCleanup"
+    log.debug "handleMotionCleanup"
 
     children.each {
     	def newTime = checkMotionDeactivate(it)
@@ -1136,7 +1090,7 @@ def checkMotionDeactivate(child) {
     	timeRemaining = 0
     }
 
-//    log.debug "checkMotionDeactivate ${cameraDNI} timeRemaining = ${timeRemaining}"
+    log.debug "checkMotionDeactivate ${cameraDNI} timeRemaining = ${timeRemaining}"
 
     // we can end motion early to avoid unresponsiveness later
     if ((timeRemaining != null) && (timeRemaining < 15)) {
@@ -1237,25 +1191,6 @@ def getPatrolIdByString(childDevice, name) {
     }
     return null
 }
-
-def getEventId(String api, String command, String params, int version) {
-//    log.trace "call getEventId"
-    def commandData = createCommandData(api, command, params, version)
-    sendDiskstationCommand(commandData)
-//    log.trace "EventID:" + state.eventList.eventId.first()
-	    return state.eventList.eventId.first()
- }
- 
- def getEventTime(String api, String command, String params, int version) {
-//    log.trace "call getEventId"
-    def commandData = createCommandData(api, command, params, version)
-    sendDiskstationCommand(commandData)
-//    log.trace "EventID:" + state.eventList.eventId.first()
-//	def df = new SimpleDateFormat("dd-MM-yyyy");
-//	def EventDate  = df.format(state.eventList.startTime.first())
-	return  state.eventList.startTime.first()
-
- }
 
 import groovy.time.TimeCategory
 
