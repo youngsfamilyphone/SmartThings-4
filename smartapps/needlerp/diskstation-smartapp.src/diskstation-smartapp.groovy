@@ -89,7 +89,7 @@ def motionSetup()
                           "the success message, retrace these steps."
             }
             section("Optional Settings", hidden: false, hideable: true) {
-            	input "motionOffDelay", "number", title:"Seconds with no message before motion is deactivated:", defaultValue:60
+            	input "motionOffDelay", "number", title:"Seconds with no message before motion is deactivated:", defaultValue:30
             }
         }
     } else {
@@ -225,6 +225,8 @@ def getDSInfo() {
     queueDiskstationCommand("SYNO.API.Info", "Query", "query=SYNO.SurveillanceStation.Camera", 1)
     queueDiskstationCommand("SYNO.API.Info", "Query", "query=SYNO.SurveillanceStation.PTZ", 1)
     queueDiskstationCommand("SYNO.API.Info", "Query", "query=SYNO.SurveillanceStation.ExternalRecording", 1)
+    queueDiskstationCommand("SYNO.API.Info", "Query", "query=SYNO.SurveillanceStation.Event", 1)
+
 
     // login
     executeLoginCommand()
@@ -372,6 +374,7 @@ def determineCommandFromResponse(parsedEvent, bodyString, body) {
         	if (body.data.sid != null) { return getUniqueCommand("SYNO.API.Auth", "Login") }
             if (bodyString.contains("maxVersion")) { return getUniqueCommand("SYNO.API.Info", "Query") }
             if (body.data.cameras != null) { return getUniqueCommand("SYNO.SurveillanceStation.Camera", "List") }
+            if (bodyString.contains("events")) { return getUniqueCommand("SYNO.SurveillanceStation.Event", "List") }
             //if (body.data.ptzPan != null) { return getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetCapability")}
             if (body.data.ptzPan != null) { return getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetCapabilityByCamId")}
             if ((body.data.total != null) && (body.data.offset != null))
@@ -397,14 +400,14 @@ def doesCommandReturnData(uniqueCommand) {
         case getUniqueCommand("SYNO.SurveillanceStation.Camera", "List"):
         case getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetCapability"):
         case getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetCapabilityByCamId"):
-        case getUniqueCommand("SYNO.SurveillanceStation.Camera", "Enable"):  //PMN
-        case getUniqueCommand("SYNO.SurveillanceStation.Camera", "Disable"):  //PMN
+   //     case getUniqueCommand("SYNO.SurveillanceStation.Camera", "Enable"):  //PMN
+   //     case getUniqueCommand("SYNO.SurveillanceStation.Camera", "Disable"):  //PMN
         case getUniqueCommand("SYNO.SurveillanceStation.PTZ", "ListPreset"):
         case getUniqueCommand("SYNO.SurveillanceStation.PTZ", "ListPatrol"):
         case getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetSnapshot"):
-        case getUniqueCommand("SYNO.SurveillanceStation.VideoStreaming", "Stream"):  //PMN
-        	return true
-        case getUniqueCommand("SYNO.SurveillanceStation.Streaming", "EventStream"):  //PMN
+  //      case getUniqueCommand("SYNO.SurveillanceStation.VideoStreaming", "Stream"):  //PMN
+   //     case getUniqueCommand("SYNO.SurveillanceStation.Streaming", "EventStream"):  //PMN
+        case getUniqueCommand("SYNO.SurveillanceStation.Event", "List"): //PMN
 return true
     }
 
@@ -424,7 +427,7 @@ def locationHandler(evt) {
 	def parsedEvent = parseEventMessage(description)
 	parsedEvent << ["hub":hub]
 
- //   log.trace "Parsed event keys: " + parsedEvent.keySet()
+    log.trace "Parsed event keys: " + parsedEvent.keySet()
 
     if ((parsedEvent.ip == convertIPtoHex(userip)) && (parsedEvent.port == convertPortToHex(userport)))
     {
@@ -500,6 +503,7 @@ def locationHandler(evt) {
                 //try {
                     if (body.success == true)
                     {
+                    log.trace "body.success == true"
                         switch (getUniqueCommand(commandData)) {
                             case getUniqueCommand("SYNO.API.Info", "Query"):
                             	def api = commandData.params.split("=")[1];
@@ -643,6 +647,8 @@ def locationHandler(evt) {
         // why are we here?
         log.trace "Did not use " + bodyString
    	}
+}
+
 
 def handleErrors(commandData, errorData) {
 	if (errorData) {
@@ -957,6 +963,7 @@ def sendDiskstationCommand(Map commandData) {
 }
 
 def createCommandData(String api, String command, String params, int version) {
+//	log trace "createCommandData"
     def commandData = [:]
     commandData.put('api', api)
     commandData.put('command', command)
@@ -967,7 +974,7 @@ def createCommandData(String api, String command, String params, int version) {
     if (getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetSnapshot") == getUniqueCommand(commandData)) {
 		commandData.put('acceptType', "image/jpeg");
     }
-
+	log.trace "commandData: " + commandData
     return commandData
 }
 
@@ -1199,6 +1206,16 @@ def getPatrolIdByString(childDevice, name) {
     return null
 }
 
+
+def getEventId(String api, String command, String params, int version) {
+    log.trace "call getEventId"
+    queueDiskstationCommand(api, command, params, version)
+//   log.trace "call getEventId:" + "TBC" //+ state.eventList.eventId.first()
+	    log.trace "getEventId returned"
+		return "getEventId Test" //state.eventList.eventId.first()
+ }
+ 
+
 import groovy.time.TimeCategory
 
 def refreshCamera(childDevice) {
@@ -1206,7 +1223,6 @@ def refreshCamera(childDevice) {
     //runIn(8, "startPolling")
     def timer = new Date()
 		use(TimeCategory) {
-    	timer = timer + 3.second
 	}
     runOnce(timer, "startPolling")
 }
