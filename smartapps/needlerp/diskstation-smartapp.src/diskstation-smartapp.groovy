@@ -420,7 +420,8 @@ return true
 // would be much better synchronous and not having to track / guess where things are coming from
 // The event argument doesn't include any way to link it back to a particular hubAction request.
 def locationHandler(evt) {
-//	log.trace "String value: " + evt.stringValue
+
+	log.trace "String value: " + evt.description
 
 	def description = evt.description
 	def hub = evt?.hubId
