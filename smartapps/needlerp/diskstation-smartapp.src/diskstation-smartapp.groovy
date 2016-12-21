@@ -397,11 +397,15 @@ def doesCommandReturnData(uniqueCommand) {
         case getUniqueCommand("SYNO.SurveillanceStation.Camera", "List"):
         case getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetCapability"):
         case getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetCapabilityByCamId"):
+        case getUniqueCommand("SYNO.SurveillanceStation.Camera", "Enable"):  //PMN
+        case getUniqueCommand("SYNO.SurveillanceStation.Camera", "Disable"):  //PMN
         case getUniqueCommand("SYNO.SurveillanceStation.PTZ", "ListPreset"):
         case getUniqueCommand("SYNO.SurveillanceStation.PTZ", "ListPatrol"):
         case getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetSnapshot"):
         case getUniqueCommand("SYNO.SurveillanceStation.VideoStreaming", "Stream"):  //PMN
         	return true
+        case getUniqueCommand("SYNO.SurveillanceStation.Streaming", "EventStream"):  //PMN
+return true
     }
 
     return false
@@ -420,7 +424,7 @@ def locationHandler(evt) {
 	def parsedEvent = parseEventMessage(description)
 	parsedEvent << ["hub":hub]
 
-    log.trace "Parsed event keys: " + parsedEvent.keySet()
+ //   log.trace "Parsed event keys: " + parsedEvent.keySet()
 
     if ((parsedEvent.ip == convertIPtoHex(userip)) && (parsedEvent.port == convertPortToHex(userport)))
     {
@@ -683,9 +687,13 @@ def checkForRedoLogin(commandData, errorData) {
 
 def handleErrorsIgnore(commandData, errorData) {
 	if (errorData) {
-    	log.trace "trying to handle error ${errorData}"
-    }
-    checkForRedoLogin(commandData, errorData)
+	        if (errorData?.code == 117) {
+        	    log.debug "Error: Manager level access required to enable/disable cameras. Please elevate access in Surveillance Station."
+       		} else {
+    			log.trace "trying to handle error ${errorData}"
+    		}
+        }
+    	checkForRedoLogin(commandData, errorData)
 }
 
 private def parseEventMessage(Map event) {
@@ -911,7 +919,7 @@ def createStreamURL(Map commandData, String location) {
     String deviceNetworkId = getDeviceId(userip, userport)
     String ip = userip + ":" + userport
     String ipOutHome = userdomain + ":" + userport2
- 
+
     try {
         def url = createDiskstationURL(commandData)
         if (url != null) {
@@ -923,13 +931,13 @@ def createStreamURL(Map commandData, String location) {
 //                log.trace hubaction
             	return hubaction
                } else {
-               log.trace "OutHome"
+//               log.trace "OutHome"
            		def hubaction = new physicalgraph.device.HubAction(
                """${ipOutHome}${url}""")
  //              log.trace hubaction
-            	return hubaction               
+            	return hubaction
                }
-            
+
 
         } else {
         	return null
@@ -1055,7 +1063,7 @@ def handleMotionCleanup() {
 	def children = getChildDevices()
     def nextTimeDefault = 120000; //1000000
     def nextTime = nextTimeDefault;
-    log.debug "handleMotionCleanup"
+//    log.debug "handleMotionCleanup"
 
     children.each {
     	def newTime = checkMotionDeactivate(it)
@@ -1090,7 +1098,7 @@ def checkMotionDeactivate(child) {
     	timeRemaining = 0
     }
 
-    log.debug "checkMotionDeactivate ${cameraDNI} timeRemaining = ${timeRemaining}"
+//    log.debug "checkMotionDeactivate ${cameraDNI} timeRemaining = ${timeRemaining}"
 
     // we can end motion early to avoid unresponsiveness later
     if ((timeRemaining != null) && (timeRemaining < 15)) {
