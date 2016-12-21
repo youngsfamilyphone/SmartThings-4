@@ -44,7 +44,6 @@ metadata {
         attribute "playStatus", "string"
         attribute "blank", "string" //blank to enable custom layout
         attribute "vidInfo", "string"
-        attribute "vidTitle", "string"
 
         command "left"
     	command "right"
@@ -139,13 +138,10 @@ metadata {
 			state "image", label: "Take", action: "Image Capture.take", icon: "st.camera.take-photo", backgroundColor: "#FFFFFF", nextState:"taking"
 		}
 
-		valueTile("vidInfo", "device.vidInfo", width:2, height: 1, inactiveLabel:true) {
+		valueTile("vidInfo", "device.vidInfo", width:2, height: 2, inactiveLabel:true) {
 			state "val", label:'${currentValue}', icon: "", defaultstate: true
 		}
 
-		valueTile("vidTitle", "device.vidTitle", width:2, height: 1, decoration: "flat" ) {
-            state "live", label:'${currentValue}', icon: ""
-		}
 		standardTile("up", "device.tiltSupported", width: 1, height: 1, canChangeIcon: false, canChangeBackground: false, decoration: "flat") {
       		state "yes", label: "up", action: "up", icon: "st.thermostat.thermostat-up"
             state "no", label: "", action: "", icon: ""
@@ -264,7 +260,7 @@ metadata {
 * details shortened as my cameras don't have PTZ capability
 
 		details(["videoPlayer",
-    "vidinfo", "vidTitle",
+    "vidinfo", 
     "take", "cameraDetails",
          		"motion", "auto", "playStatus",
                 "recordStatus", "status", "refresh",
@@ -275,7 +271,7 @@ metadata {
 */
          details(["videoPlayer",
          		"take", "cameraDetails",
-            "vidTitle", "vidInfo",
+            "vidInfo",
          		"motion", "auto", "playStatus",
                 "recordStatus", "status", "refresh"])
 
@@ -409,20 +405,15 @@ def getCameraID() {
     }
     return (cameraId)
 }
-
-def getEventID() {
+/* not currently used - see def Video()
+def getEventId() {
         def cameraId = getCameraID()
-	   	def eventId = parent.getEventId("SYNO.SurveillanceStation.Event", "List", "cameraIds=${cameraId}&orderMethod=1&limit=1", 5)
+	   	def eventId = "Testing"
         log.trace "getEventID:" + eventId
-		sendEvent(name:"vidInfo", value: eventId)
-        return (eventId)
+		sendEvent(name:"vidInfo", value: "Playback:\r\n" + eventId)
+        return eventId
 }
-def getEventTime() {
-        def cameraId = getCameraID()
-	   	def eventTime = parent.getEventTime("SYNO.SurveillanceStation.Event", "List", "cameraIds=${cameraId}&orderMethod=1&limit=1", 5)
-        log.trace "getEventTime:" + eventTime
-        return (eventTime)
-}
+*/
 
 // handle commands
 def take() {
@@ -647,19 +638,18 @@ def disable() {
 // Needlerp: Turn recording playback on/off in lieu of live view
 def video() {
 	log.trace "Set Video"
-    //def eventId = getEventId()
-	sendEvent(name:"vidTitle", value:"Playback:")
-    sendEvent(name:"vidInfo", value: eventId)
+    def cameraId = getCameraID()
+//    def eventID = getEventId()
     sendEvent(name:"playStatus", value: "video")
-//    refresh()
+    sendEvent(name:"vidInfo", value:"Getting Recording Data...")
+    def hubAction = queueDiskstationCommand_Child("SYNO.SurveillanceStation.Event", "List", "cameraIds=${cameraId}&orderMethod=1&limit=1", 5)
+    hubAction
 }
 
 def live() {
 	log.trace "Set Live"
-    sendEvent(name:"vidTitle", value:"Live")
-    sendEvent(name:"vidInfo", value:"Stream")
+    sendEvent(name:"vidInfo", value:"Live Stream")
     sendEvent(name:"playStatus", value:"live")
-//    refresh()
 }
 
 void logDebug(str) {
@@ -748,9 +738,9 @@ def initChild(Map capabilities)
 
 def queueDiskstationCommand_Child(String api, String command, String params, int version) {
     def commandData = parent.createCommandData(api, command, params, version)
-//    log.trace "CommandData:" + commandData
+ //   log.trace "CommandData:" + commandData
 	def hubAction = parent.createHubAction(commandData)
-    hubAction
+    return hubAction
 //    log.trace "hubAction: " + hubAction
 }
 
