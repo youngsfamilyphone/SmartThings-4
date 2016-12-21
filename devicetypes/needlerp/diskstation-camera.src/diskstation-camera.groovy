@@ -248,6 +248,8 @@ metadata {
 */
          details(["videoPlayer",
          		"take", "cameraDetails",
+         		"motion", "auto", "playStatus",
+                "recordStatus", "status", "refresh"])
 
 	}
 
