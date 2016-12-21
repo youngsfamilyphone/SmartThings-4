@@ -574,6 +574,7 @@ def locationHandler(evt) {
         	log.trace "event = ${description}"
             //Call to see if request for Event details
             if (getUniqueCommand("SYNO.SurveillanceStation.Event", "List") == commandType)
+	           	{
 				state.eventList = body.data.events
                 def eventId = state.eventList.eventId.first()
                 log.trace "Found Event 594: " + eventId
@@ -654,6 +655,7 @@ def locationHandler(evt) {
         // why are we here?
         log.trace "Did not use " + bodyString
    	}
+}
 
 def handleErrors(commandData, errorData) {
 	if (errorData) {
