@@ -311,10 +311,8 @@ mappings {
 def start() {
 	def cameraId = getCameraID()
     log.debug "Start Streaming Camera " + cameraID
-
-    log.trace "hubStreamOutHome: " + hubStreamOutHome
-
-    log.trace "hubStreamInHome: " + hubStreamInHome
+    def hubStreamOutHome = getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "LiveStream", "cameraId=${cameraId}", 2, "OutHome")
+    def hubStreamInHome = getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "LiveStream", "cameraId=${cameraId}", 2, "InHome")
 
     def dataLiveVideo = [
 		OutHomeURL  : "https://" + hubStreamOutHome,
@@ -335,8 +333,7 @@ def start() {
 //    log.trace event
 	sendEvent(event)
     log.trace "Streaming..."
-			  def hubStreamOutHome = getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "LiveStream", "cameraId=${cameraId}", 2, "OutHome")
-              def hubStreamInHome = getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "LiveStream", "cameraId=${cameraId}", 2, "InHome")
+
 }
 
 def installed() {
@@ -370,14 +367,14 @@ def configure() {
 }
 
 def getInHomeURL() {
+    def cameraId = getCameraID()
     def InHomeURL = "http://" + getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "LiveStream", "cameraId=${cameraId}", 2, "InHome")
     [InHomeURL: InHomeURL]
-	def cameraId = getCameraID()
 }
 
 def getOutHomeURL() {
 	def cameraId = getCameraID()
-	 [InHomeURL: "https://" + getStreamURL_Child("SYNO.SurveillanceStation.VideoStreaming", "Stream", "cameraId=${cameraId}&format=mjpeg", 1, "OutHome")]
+	 [OutHomeURL: "https://" + getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "LiveStream", "cameraId=${cameraId}", 2, "OutHome")]
 }
 
 def putImageInS3(map) {
