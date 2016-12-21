@@ -911,7 +911,7 @@ def createStreamURL(Map commandData, String location) {
     String deviceNetworkId = getDeviceId(userip, userport)
     String ip = userip + ":" + userport
     String ipOutHome = userdomain + ":" + userport2
-
+ 
     try {
         def url = createDiskstationURL(commandData)
         if (url != null) {
@@ -927,9 +927,9 @@ def createStreamURL(Map commandData, String location) {
            		def hubaction = new physicalgraph.device.HubAction(
                """${ipOutHome}${url}""")
  //              log.trace hubaction
-            	return hubaction
+            	return hubaction               
                }
-
+            
 
         } else {
         	return null
