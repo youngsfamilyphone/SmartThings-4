@@ -101,18 +101,18 @@ metadata {
 			tileAttribute("device.switch", key: "CAMERA_STATUS") {
 				attributeState("on", label: "Active", icon: "st.camera.dlink-indoor", action: "switch.off", backgroundColor: "#79b821", defaultState: true)
 				attributeState("off", label: "Inactive", icon: "st.camera.dlink-indoor", action: "switch.on", backgroundColor: "#ffffff")
-				attributeState("restarting", label: "Buffering", icon: "st.camera.dlink-indoor", backgroundColor: "#53a7c0")
+				attributeState("restarting", label: "Connecting", icon: "st.camera.dlink-indoor", backgroundColor: "#53a7c0")
 				attributeState("unavailable", label: "Unavailable", icon: "st.camera.dlink-indoor", action: "refresh.refresh", backgroundColor: "#F22000")
 			}
 
 			tileAttribute("device.errorMessage", key: "CAMERA_ERROR_MESSAGE") {
-				attributeState("errorMessage", label: "Test Error", value: "", defaultState: true)
+				attributeState("errorMessage", label: "", value: "", defaultState: true)
 			}
 
 			tileAttribute("device.camera", key: "PRIMARY_CONTROL") {
 				attributeState("on", label: "Active", icon: "st.camera.dlink-indoor", backgroundColor: "#79b821", defaultState: true)
 				attributeState("off", label: "Inactive", icon: "st.camera.dlink-indoor", backgroundColor: "#ffffff")
-				attributeState("restarting", label: "Buffering", icon: "st.camera.dlink-indoor", backgroundColor: "#53a7c0")
+				attributeState("restarting", label: "Connecting", icon: "st.camera.dlink-indoor", backgroundColor: "#53a7c0")
 				attributeState("unavailable", label: "Unavailable", icon: "st.camera.dlink-indoor", backgroundColor: "#F22000")
 			}
 
@@ -123,10 +123,13 @@ metadata {
 			tileAttribute("device.stream", key: "STREAM_URL") {
 				attributeState("activeURL", defaultState: true)
 			}
-            tileAttribute("device.trackDescription", key: "MARQUEE") {
-            	attributeState("trackDescription", label:"Track Descriptoin", defaultState: true)
-        }
-
+                        /*
+			tileAttribute("device.profile", key: "STREAM_QUALITY") {
+				attributeState("1", label: "720p", action: "setProfileHD", defaultState: true)
+				attributeState("2", label: "h360p", action: "setProfileSDH", defaultState: true)
+				attributeState("3", label: "l360p", action: "setProfileSDL", defaultState: true)
+			}	
+            */
        }
 
 
@@ -296,11 +299,10 @@ mappings {
        action:
        [GET: "getInHomeURL"]
    }
-	path("/getOutHomeURL") {
-       action:
-       [GET: "getOutHomeURL"]
-   }
-
+   path("/getOutHomeURL") {
+   		action:
+        [GET: "getOutHomeURL"]
+       }
 }
 
 
@@ -308,15 +310,15 @@ def start() {
 	def cameraId = getCameraID()
     log.debug "Start Streaming Camera " + cameraId
 
-	if (device.currentState("playStatus")?.value == "video") {
+/*	if (device.currentState("playStatus")?.value == "video") {
     	log.trace "Status: Video"
  		def eventId = getEventID()
- 		log.trace "EventID: " + eventId
+ 		log.trace "start() EventID: " + eventId
 
 		  def hubStreamOutHome = getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "EventStream", "eventId=${eventId}", 2, "OutHome")  
           def hubStreamInHome = getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "EventStream", "eventId=${eventId}", 2, "InHome")       
           
-          log.trace "HubStream:" + hubStreamInHome
+          log.trace "Start HubStream:" + hubStreamInHome
           
            def dataLiveVideo = [
                 OutHomeURL  : "https://" + hubStreamOutHome,
@@ -335,13 +337,17 @@ def start() {
         	]
 //    		log.trace event
 			sendEvent(event)
-			sendEvent(name:"vidTitle", value:"Playback:")
-    		sendEvent(name:"vidInfo", value: eventId)
     		log.trace "Streaming Video..."
         } else {
-            log.trace "Status: Live"
-              def hubStreamOutHome = getStreamURL_Child("SYNO.SurveillanceStation.VideoStreaming", "Stream", "cameraId=${cameraId}&format=mjpeg", 1, "OutHome")       
-              def hubStreamInHome = getStreamURL_Child("SYNO.SurveillanceStation.VideoStreaming", "Stream", "cameraId=${cameraId}&format=mjpeg", 1, "InHome")       
+        */
+ //           log.trace "Status: Live"
+ //             def hubStreamOutHome = getStreamURL_Child("SYNO.SurveillanceStation.VideoStreaming", "Stream", "cameraId=${cameraId}&format=mjpeg", 1, "OutHome")       
+ //             def hubStreamInHome = getStreamURL_Child("SYNO.SurveillanceStation.VideoStreaming", "Stream", "cameraId=${cameraId}&format=mjpeg", 1, "InHome")    
+
+			  def hubStreamOutHome = getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "LiveStream", "cameraId=${cameraId}", 2, "OutHome")       
+              def hubStreamInHome = getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "LiveStream", "cameraId=${cameraId}", 2, "InHome")    
+              
+              log.trace "hubStream: " + hubStreamInHome
 
             def dataLiveVideo = [
                 OutHomeURL  : "https://" + hubStreamOutHome,
@@ -349,7 +355,8 @@ def start() {
                 ThumbnailURL: "http://cdn.device-icons.smartthings.com/camera/dlink-indoor@2x.png",
                 cookie      : [key: "key", value: "value"]
             ]
-        	def event = [
+ 
+ 			def event = [
             name           : "stream",
             value          : groovy.json.JsonOutput.toJson(dataLiveVideo).toString(),
             data		   : groovy.json.JsonOutput.toJson(dataLiveVideo),
@@ -358,12 +365,13 @@ def start() {
             displayed      : false,
             isStateChange  : true
         	]
-//    		log.trace event
+            
 			sendEvent(event)
-			sendEvent(name:"vidTitle", value:"Live")
-            sendEvent(name:"vidInfo", value: "Stream")
+            
+//			sendEvent(name:"vidTitle", value:"Live")
+//           sendEvent(name:"vidInfo", value: "Stream")
     		log.trace "Streaming Live..."
-        }
+ //       }
 }
 
 def installed() {
@@ -397,24 +405,32 @@ def configure() {
 }
 
 def getInHomeURL() {
-	if (device.currentState("playStatus")?.value == "video") {
-	def cameraId = getCameraID()
-    [InHomeURL: "http://" + getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "EventStream", "eventId=${eventId}",2, "InHome")]
-     } else {
-	 def cameraId = getCameraID()
-    [InHomeURL: "http://" + getStreamURL_Child("SYNO.SurveillanceStation.VideoStreaming", "Stream", "cameraId=${cameraId}&format=mjpeg", 1, "InHome")]
-		}
+	log.trace "getInHomeURL"
+    def cameraId = getCameraID()
+    def InHomeURL = "http://" + getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "LiveStream", "cameraId=${cameraId}", 2, "InHome")
+    log.trace "getInHomeURL: " + InHomeURL
+    [InHomeURL: InHomeURL]
+//	if (device.currentState("playStatus")?.value == "video") {
+//	def cameraId = getCameraID()
+//    [InHomeURL: "http://" + getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "EventStream", "eventId=${eventId}",2, "InHome")]
+//     } else {
+//	 def cameraId = getCameraID()
+//		}
 }
 
-def getOutHomeURL() {
+/*def getOutHomeURL() {
+    [OutHomeURL: "http://" + getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "LiveStream", "cameraId=${cameraId}", 2, "OutHome")]
+*/
+/*	log.trace "getOutHomeURL"
 	if (device.currentState("playStatus")?.value == "video") {
 	def cameraId = getCameraID()
     [OutHomeURL: "http://" + getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "EventStream", "eventId=${eventId}", 2, "OutHome")]
      } else {
 	 def cameraId = getCameraID()
-    [OutHomeURL: "http://" + getStreamURL_Child("SYNO.SurveillanceStation.VideoStreaming", "Stream", "cameraId=${cameraId}&format=mjpeg", 1, "OutHome")]
 		}
+ 
 }
+       */
 
 
 def putImageInS3(map) {
@@ -451,10 +467,10 @@ def getCameraID() {
 }
 
 def getEventID() {
-//		log.trace "getEventID"
         def cameraId = getCameraID()
 	   	def eventId = parent.getEventId("SYNO.SurveillanceStation.Event", "List", "cameraIds=${cameraId}&orderMethod=1&limit=1", 5)
         log.trace "getEventID:" + eventId
+		sendEvent(name:"vidInfo", value: eventId)
         return (eventId)
 }
 def getEventTime() {
