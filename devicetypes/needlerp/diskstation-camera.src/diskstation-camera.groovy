@@ -299,10 +299,6 @@ mappings {
        action:
        [GET: "getInHomeURL"]
    }
-   path("/getOutHomeURL") {
-   		action:
-        [GET: "getOutHomeURL"]
-       }
 }
 
 
