@@ -451,13 +451,13 @@ def locationHandler(evt) {
             log.trace "DISKSTATION REPONSE TYPE: $type"
             if (type?.contains("text/plain"))
             {
-            	log.trace "text/plain:" + bodyString
+            	log.trace bodyString
             	body = new groovy.json.JsonSlurper().parseText(bodyString)
             } else if (type?.contains("application/json")) {
-            	log.trace "application/json: "+ bodyString
+            	log.trace bodyString
                 body = new groovy.json.JsonSlurper().parseText(bodyString)
             } else if (type?.contains("text/html")) {
-                log.trace "text/html: "+ bodyString
+                log.trace bodyString
                 body = new groovy.json.JsonSlurper().parseText(bodyString.replaceAll("\\<.*?\\>", ""))
             } else {
                 // unexpected data type
@@ -479,13 +479,11 @@ def locationHandler(evt) {
                         body.data = null
                     } else {
                         // don't ignore
-                        log.trace "Handle Error"
                         handleErrors(commandData, body.error)
                         return
                     }
                 } else {
                     // error on a command we don't care about
-                    log.trace "Error on a command we don't care about"
                     handleErrorsIgnore(null, body.error)
                     return
                 }
@@ -494,16 +492,15 @@ def locationHandler(evt) {
 
         // gathered our incoming command data, see what we have
         def commandType = determineCommandFromResponse(parsedEvent, bodyString, body)
-//        log.trace "def commandtype: "+ commandType
 
    		// check if this is a command for the master
         if ((state.commandList.size() > 0) && (body != null) && (commandType != ""))
         {
             Map commandData = state.commandList.first()
 
-            log.trace "Logging command for master" + bodyString
+            //log.trace "Logging command " + bodyString
 
-            log.trace "master waiting on " + getUniqueCommand(commandData)
+            //log.trace "master waiting on " + getUniqueCommand(commandData)
             if (getUniqueCommand(commandData) == commandType)
             {
             	// types match between incoming and what we wanted, handle it
@@ -512,7 +509,6 @@ def locationHandler(evt) {
                 //try {
                     if (body.success == true)
                     {
-                    log.trace "body.success == true"
                         switch (getUniqueCommand(commandData)) {
                             case getUniqueCommand("SYNO.API.Info", "Query"):
                             	def api = commandData.params.split("=")[1];
@@ -574,22 +570,22 @@ def locationHandler(evt) {
                 //    handleErrors(commandData)
                 //}
                 // exit out, we've handled the message we wanted
-				return finalize 
+				return
             }
       	}
         // no master command waiting or not the one we wanted
         // is this a child message?
 
         if (commandType != "") {
-        	log.trace "check for child event"
         	log.trace "event = ${description}"
-            log.trace "child commandType: " + commandType
             
-            if (commandType == getUniqueCommand("SYNO.SurveillanceStation.Event", "List")) {
-            log.trace "Extract eventId update child objects"
-            def eventList = body.data.events 
+            // PAUL NEEDLER EVENTID SCRIPT STARTS HERE
+             switch (commandType) {
+                case getUniqueCommand("SYNO.SurveillanceStation.Event", "List"):
+	            log.trace "Extract eventId update child objects"
+    	        def eventList = body.data.events 
 //   			def eventId = eventList.eventId.first() 
-//            log.trace "eventId: " + eventId
+//            	log.trace "eventId: " + eventId
             	def children = getChildDevices()
  //               log.trace "children: "+ children
 				children.each {
@@ -603,41 +599,31 @@ def locationHandler(evt) {
                         def eventId = eventList.eventId.first() 
 						log.trace "this camera eventId: " + eventId
                         it.seteventId(state.eventId.first())
+                        
  					}
 //                        child.seteventId(eventId)
+						
                         }
 
-            }
+           		 }  //children.each
+ //                break
+			}
             
-    //          log.trace "body: "+ body
-    //            state.eventId = body.data.events.eventId
-    //            log.trace "state.eventId: "+ state.eventId
-    //           child.seteventId(eventId)
-			return
-            }
+            
+            //  PAUL NEEDERL EVENTID SCRIPT ENDS HERE
 
             // guess who wants this type (commandType)
             def commandInfo = getFirstChildCommand(commandType)
-            log.trace "child CommandInfo:" + commandInfo
 
             if (commandInfo != null) {
-              log.trace "child CommandInfo:" + commandInfo
-
                 switch (commandType) {
                     case getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetSnapshot"):
                         if (parsedEvent.bucket && parsedEvent.key){
                         	log.trace "saving image to device"
                             commandInfo?.child?.putImageInS3(parsedEvent)
                         }
-                        return finalizeChildCommand(commandInfo) //not sure if this comes after final case
-                     case getUniqueCommand("SYNO.SurveillanceStation.Event", "List"):
-                     		log.trace "Next level EventID"
-                            return finalizeChildCommand(commandInfo)
-                    
+                        return finalizeChildCommand(commandInfo)
                 }
-            } else {
- //          	log.trace "commandInfo = null for child, did getFirstChildCommand fail?"
-            
             }
         }
 
@@ -645,12 +631,9 @@ def locationHandler(evt) {
         if ((state.commandList.size() > 0) && (body != null))
         {
         	// we have master commands, maybe this is an error
-            log.trace "unwanted or unknown type"
             Map commandData = state.commandList.first()
 
             if (body.success == false) {
-            log.trace "body.success == false"
-            
             	def finalizeCommand = true
 
                 switch (getUniqueCommand(commandData)) {
@@ -668,9 +651,6 @@ def locationHandler(evt) {
                     	def cameraId = (commandData.params =~ /cameraId=([0-9]+)/) ? (commandData.params =~ /cameraId=([0-9]+)/)[0][1] : null
                     	if (cameraId) { state.cameraPatrols[cameraId.toInteger()] = null }
                     	break
-                    case getUniqueCommand("SYNO.SurveillanceStation.Event", "List"):
-                    	log.trace "Event List Error"
-                        break
                     default:
                         log.debug "don't know now to handle this command " + state.lastcommand
                     	finalizeCommand = false
@@ -682,12 +662,10 @@ def locationHandler(evt) {
                 return
           	} else {
             	// if we get here, we likely just had a success for a message we don't care about
-                log.trace "success, but message we don't care about"
             }
         }
 
         // is this an empty GetSnapshot error?
-    //    log.trace "is this an empty GetSnapshot error?"
         if (parsedEvent.requestId && !parsedEvent.headers) {
         	def commandInfo = getFirstChildCommand(getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetSnapshot"))
             if (commandInfo) {
