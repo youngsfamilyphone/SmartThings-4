@@ -591,23 +591,31 @@ def locationHandler(evt) {
             if (commandType == getUniqueCommand("SYNO.SurveillanceStation.Event", "List")) {
             log.trace "Extract eventId update child objects"
             def eventList = body.data.events 
-   			def eventId = eventList.eventId.first() 
-            log.trace "eventId: " + eventId
+//   			def eventId = eventList.eventId.first() 
+//            log.trace "eventId: " + eventId
             	def children = getChildDevices()
                 log.trace "children: "+ children
-	/*		children.each {
+				children.each {
                 def childObj = it;
-                    def thisCamera = state.SSCameraList.find { createCameraDNI(it).toString() == childObj.deviceNetworkId.toString() }
-                    if (thisCamera) {
-                        child.geteventId(eventId)
+                def thisCamera = state.SSCameraList.find { createCameraDNI(it).toString() == childObj.deviceNetworkId.toString() }
+                if (thisCamera) {
+                	if (childObj.deviceNetworkId.toString() == body.data.events.camera_name.first()) {
+	                   log.trace "Event camera matched to current child device"
+                      	state.eventId = body.data.events.eventId
+ 			            log.trace "this camera state.eventId: "+ state.eventId.first()
+                        def eventId = eventList.eventId.first() 
+						log.trace "this camera eventId: " + eventId
+                        it.seteventId(state.eventId.first())
+ 					}
+//                        child.seteventId(eventId)
                         }
 
             }
-            */
+            
     //          log.trace "body: "+ body
     //            state.eventId = body.data.events.eventId
     //            log.trace "state.eventId: "+ state.eventId
-    //           child.geteventId(eventId)
+    //           child.seteventId(eventId)
 			return
             }
 
@@ -682,7 +690,7 @@ def locationHandler(evt) {
         }
 
         // is this an empty GetSnapshot error?
-        log.trace "is this an empty GetSnapshot error?"
+    //    log.trace "is this an empty GetSnapshot error?"
         if (parsedEvent.requestId && !parsedEvent.headers) {
         	def commandInfo = getFirstChildCommand(getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetSnapshot"))
             if (commandInfo) {
