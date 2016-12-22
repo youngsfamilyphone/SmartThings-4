@@ -299,10 +299,17 @@ mappings {
    }
 }
 
-
+//PMN here - need to make it so that Start() properly calls getVideoDetails to get start eventId before parsing video stream, including adding in delay. Then link video stream to video/live
 def start() {
-	def cameraId = getCameraID()
-    log.debug "Start Streaming Camera " + cameraID
+    def cameraId = getCameraID()
+	def updateVideo = getVideoDetails() 
+    // PMN add in a loop to wait for video details to update
+	log.debug "Start Streaming Camera " + cameraID
+    if (device.currentState("playStatus")?.value == "video") {
+    	def eventId = device.currentState("vidInfo").value
+        log.trace "Start eventId: "+ eventId
+		log.trace "Video Stream"
+    }
     def hubStreamOutHome = getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "LiveStream", "cameraId=${cameraId}", 2, "OutHome")
     def hubStreamInHome = getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "LiveStream", "cameraId=${cameraId}", 2, "InHome")
 	log.trace hubStreamInHome
@@ -361,7 +368,7 @@ def configure() {
 }
 
 def getInHomeURL() {
-    log.trace "getInHomeURL()"
+ //   log.trace "getInHomeURL()"
     def cameraId = getCameraID()
     def InHomeURL = "http://" + getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "LiveStream", "cameraId=${cameraId}", 2, "InHome")
     [InHomeURL: InHomeURL]
@@ -407,9 +414,9 @@ def getCameraID() {
     return (cameraId)
 }
 // captures EventId from parent app and updates tile
-def geteventId(eventId) {
-	   	log.trace "getEventID:" + eventId
-		sendEvent(name:"vidInfo", value: "Playback:\r\n" + eventId)
+def seteventId(eventId) {
+//		log.trace "child seteventId: " + eventId
+		sendEvent(name:"vidInfo", value: eventId)
         return
 }
 
@@ -637,17 +644,23 @@ def disable() {
 // Needlerp: Turn recording playback on/off in lieu of live view
 def video() {
 	log.trace "Set Video"
+    def eventId = getVideoDetails()
+   }
+    
+def getVideoDetails() {
+	log.trace "getVideoDetails()"
     def cameraId = getCameraID()
 //    def eventID = getEventId()
     sendEvent(name:"playStatus", value: "video")
-    sendEvent(name:"vidInfo", value:"Getting Recording Data...")
+    sendEvent(name:"vidInfo", value:".....")
     def hubAction = queueDiskstationCommand_Child("SYNO.SurveillanceStation.Event", "List", "cameraIds=${cameraId}&orderMethod=1&limit=1", 5)
-    hubAction
+    return hubAction
+ //	log.trace "video eventId: "+ parent.eventId
 }
 
 def live() {
 	log.trace "Set Live"
-    sendEvent(name:"vidInfo", value:"Live Stream")
+    sendEvent(name:"vidInfo", value:null)
     sendEvent(name:"playStatus", value:"live")
 }
 
@@ -731,7 +744,9 @@ def initChild(Map capabilities)
     }
     if (device.currentState("playStatus")?.value == "Live") { //Needlerp
 		sendEvent(name: "playStatus", value: "Live")
+        sendEvent(name: "vidInfo", value:"N/A")
     }
+
 
 }
 
