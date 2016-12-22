@@ -312,27 +312,20 @@ def finalizeChildCommand(commandInfo) {
 // This unreliable in enviroments with many cameras set to AutoTake
 def getFirstChildCommand(commandType) {
 	def commandInfo = null
-    log.trace "trying getFirstChildCommand for " + commandType
+   log.trace "trying getFirstChildCommand for " + commandType
 
 	// get event type to search for
     def searchType = null
-    log.trace "commandType: "+ commandType
-    log.trace "getUniqueCommand:"+ getUniqueCommand("SYNO.SurveillanceStation.Event", "List")
-    
 	switch (commandType) {
-        case getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetSnapshot"):
+		case getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetSnapshot"):
         	searchType = "takeImage"
+            log.trace "searchtype = takeImage"
         	break
-        case getUniqueCommand("SYNO.SurveillanceStation.Event", "List"):
-            log.trace "found ChildCommand EventID"
-            def eventId = "getFirstChildCommand EventId"
-            log.trace "EventID: "+ eventId
-            break
     }
-	log.trace "getFirstChildCommand next"
+
     if (searchType != null) {
         def children = getChildDevices()
-        def bestTime = now()
+        log.trace "children: "+ children
         def startTime = now() - 40000
 
         if (state.lastEventTime != null) {
@@ -342,11 +335,13 @@ def getFirstChildCommand(commandType) {
         }
 
         //log.trace "startTime = ${startTime}, now = ${now()}"
+        def bestTime = now()
 
         children.each {
             // get the events from the child
             def events = it.eventsSince(new Date(startTime))
             def typedEvents = events.findAll { it.name == searchType }
+            log.trace "events: "+ events
 
 			if (typedEvents) {
              	typedEvents.each { event ->
@@ -364,8 +359,10 @@ def getFirstChildCommand(commandType) {
 			}
         }
     }
+    log.trace commandInfo
     return commandInfo
 }
+
 
 
 
@@ -584,9 +581,9 @@ def locationHandler(evt) {
         // is this a child message?
 
         if (commandType != "") {
-//        	log.trace "check for child event"
-//        	log.trace "event = ${description}"
-//            log.trace "child commandType: " + commandType
+        	log.trace "check for child event"
+        	log.trace "event = ${description}"
+            log.trace "child commandType: " + commandType
             
             if (commandType == getUniqueCommand("SYNO.SurveillanceStation.Event", "List")) {
             log.trace "Extract eventId update child objects"
@@ -594,7 +591,7 @@ def locationHandler(evt) {
 //   			def eventId = eventList.eventId.first() 
 //            log.trace "eventId: " + eventId
             	def children = getChildDevices()
-                log.trace "children: "+ children
+ //               log.trace "children: "+ children
 				children.each {
                 def childObj = it;
                 def thisCamera = state.SSCameraList.find { createCameraDNI(it).toString() == childObj.deviceNetworkId.toString() }
@@ -602,7 +599,7 @@ def locationHandler(evt) {
                 	if (childObj.deviceNetworkId.toString() == body.data.events.camera_name.first()) {
 	                   log.trace "Event camera matched to current child device"
                       	state.eventId = body.data.events.eventId
- 			            log.trace "this camera state.eventId: "+ state.eventId.first()
+// 			            log.trace "this camera state.eventId: "+ state.eventId.first()
                         def eventId = eventList.eventId.first() 
 						log.trace "this camera eventId: " + eventId
                         it.seteventId(state.eventId.first())
@@ -621,10 +618,10 @@ def locationHandler(evt) {
 
             // guess who wants this type (commandType)
             def commandInfo = getFirstChildCommand(commandType)
-//            log.trace "child CommandInfo:" + commandInfo
+            log.trace "child CommandInfo:" + commandInfo
 
             if (commandInfo != null) {
- //               log.trace "child CommandInfo:" + commandInfo
+              log.trace "child CommandInfo:" + commandInfo
 
                 switch (commandType) {
                     case getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetSnapshot"):
