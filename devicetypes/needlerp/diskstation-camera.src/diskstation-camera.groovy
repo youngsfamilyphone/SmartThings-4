@@ -483,11 +483,11 @@ def seteventId(eventId) {
 def take() {
     try {
     	def lastNum = device.currentState("takeImage")?.integerValue
-    	sendEvent(name: "takeImage", value: "${lastNum+1}", displayed: false)
+    	sendEvent(name: "takeImage", value: "${lastNum+1}")
     }
 	catch(Exception e) {
 		log.error e
-        sendEvent(name: "takeImage", value: "0", displayed: false)
+        sendEvent(name: "takeImage", value: "0")
 	}
     def hubAction = null
     def cameraId = getCameraID()
