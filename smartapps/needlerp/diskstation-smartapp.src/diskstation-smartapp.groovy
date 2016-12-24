@@ -582,7 +582,7 @@ def locationHandler(evt) {
             // PAUL NEEDLER EVENTID SCRIPT STARTS HERE
              switch (commandType) {
                 case getUniqueCommand("SYNO.SurveillanceStation.Event", "List"):
-	            log.trace "Extract eventId update child objects"
+//	            log.trace "Extract eventId update child objects"
     	        def eventList = body.data.events 
 //   			def eventId = eventList.eventId.first() 
 //            	log.trace "eventId: " + eventId
@@ -593,12 +593,27 @@ def locationHandler(evt) {
                 def thisCamera = state.SSCameraList.find { createCameraDNI(it).toString() == childObj.deviceNetworkId.toString() }
                 if (thisCamera) {
                 	if (childObj.deviceNetworkId.toString() == body.data.events.camera_name.first()) {
-	                   log.trace "Event camera matched to current child device"
-                      	state.eventId = body.data.events.eventId
+//	                   log.trace "Event camera matched to current child device"
+//                   	state.eventId = body.data.events.eventId
+//                      state.eventTime = body.data.events.startTime
+//                      state.videoCodec = body.data.events.videoCodec
+                        log.trace "videoCodec: "+ state.videoCodec
 // 			            log.trace "this camera state.eventId: "+ state.eventId.first()
                         def eventId = eventList.eventId.first() 
+                        def eventTimestamp = eventList.startTime.first()
+                        def videoCodec = eventList.videoCodec.first()
 						log.trace "this camera eventId: " + eventId
-                        it.seteventId(state.eventId.first())
+                        log.trace "this camera eventTime: " + eventTime
+                        def eventTime = new Date( ((long)eventTimestamp) * 1000 ).format("HH:mm:ss dd-MMM-yyyy")
+                        log.trace "this camera eventTime (Format)" + eventTime
+                        log.trace "this camera videoCodec: "+ videoCodec
+                        it.seteventId(eventId)
+                        if (videoCodec == "MJPEG") { //Can't stream MJPEG - return error and revert to Live in child
+                        	log.trace "MJPEG Stream found - cannot stream this AVI file)"
+                        	it.seteventTime("MJPEG")
+                        } else {
+                        	it.seteventTime(eventTime)
+                        }
                         
  					}
 //                        child.seteventId(eventId)
@@ -611,7 +626,6 @@ def locationHandler(evt) {
             
             
             //  PAUL NEEDERL EVENTID SCRIPT ENDS HERE
-
             // guess who wants this type (commandType)
             def commandInfo = getFirstChildCommand(commandType)
 
@@ -1316,3 +1330,45 @@ def getRefreshState(child) {
 def waitingRefresh(child) {
 	return (child.currentState("refreshState")?.value == "waiting")
 }
+
+/// Parse Events
+private postAction(uri){
+  def getDeviceID = getDeviceId(userip,userport)  
+  log.trace "getDeviceID: "+ getDeviceID
+  def hubAction = new physicalgraph.device.HubAction(
+    method: "POST",
+    path: uri,
+    headers: headers
+  )//,delayAction(1000), refresh()]
+  log.debug("Would like to postAction:" + hubAction)
+  log.debug("Executing hubAction on " + getHostAddress())
+  //log.debug hubAction
+  return hubAction    
+}
+
+// ------------------------------------------------------------------
+// Helper methods
+// ------------------------------------------------------------------
+
+def parseDescriptionAsMap(description) {
+	description.split(",").inject([:]) { map, param ->
+		def nameAndValue = param.split(":")
+		map += [(nameAndValue[0].trim()):nameAndValue[1].trim()]
+	}
+}
+
+private getHeader(){
+	log.debug "Getting headers"
+    def headers = [:]
+    headers.put("HOST", getHostAddress())
+    return headers
+}
+
+private delayAction(long time) {
+	new physicalgraph.device.HubAction("delay $time")
+}
+
+private getHostAddress() {
+	return "${userip}:${userport}"
+}
+
