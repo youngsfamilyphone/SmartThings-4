@@ -44,6 +44,7 @@ metadata {
         attribute "playStatus", "string"
         attribute "blank", "string" //blank to enable custom layout
         attribute "vidInfo", "string"
+        attribute "vidTime", "string"
 
         command "left"
     	command "right"
@@ -139,11 +140,14 @@ metadata {
 
 		standardTile("take", "device.image", width: 2, height: 1, canChangeIcon: false, inactiveLabel: true, canChangeBackground: false, decoration:"flat") {
 			state "take", label: "", action: "Image Capture.take", icon: "https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/snapshot.png", backgroundColor: "#FFFFFF", nextState:"taking"
-			state "taking", label:"", action: "", icon: "https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/snapshot2.png", backgroundColor: "#53a7c0"
+			state "taking", label:"", action: "", icon: "https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/snapshot2.png", backgroundColor: "#ffffff"
 			state "image", label: "", action: "Image Capture.take", icon: "https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/snapshot.png", backgroundColor: "#FFFFFF", nextState:"taking"
 		}
 
-		valueTile("vidInfo", "device.vidInfo", width:2, height: 1, inactiveLabel:true) {
+		valueTile("vidInfo", "device.vidInfo", width:1, height: 1, inactiveLabel:true) {
+			state "val", label:'${currentValue}', action: "getplayStatus", icon: "", defaultstate: true
+		}
+        valueTile("vidTime", "device.vidTime", width:2, height: 1, inactiveLabel:true) {
 			state "val", label:'${currentValue}', action: "getplayStatus", icon: "https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/tile_2x1_refresh.png", defaultstate: true
 		}
 
@@ -221,11 +225,11 @@ metadata {
 
         standardTile("recordStatus", "device.recordStatus", width: 2, height: 1, canChangeIcon: false, canChangeBackground: false, decoration:"flat") {
       		state "off", label: "", action: "recordon", icon: "https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/recordoff.png", backgroundColor: "#FFFFFF"
-    	  	state "on", label: "", action: "recordoff", icon: "https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/recordon.png",  backgroundColor: "#53A7C0"
+    	  	state "on", label: "", action: "recordoff", icon: "https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/recordon.png",  backgroundColor: "#ffffff"
 	    }
 
 		standardTile("motion", "device.motion", width: 2, height: 1, canChangeIcon: false, canChangeBackground: false, decoration:"flat") {
-			state("active", label:"", icon:"https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/motion.png", backgroundColor:"#53a7c0")
+			state("active", label:"", icon:"https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/motion.png", backgroundColor:"#ffffff")
 			state("inactive", label:"", icon:"https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/nomotion.png", backgroundColor:"#ffffff")
 		}
 
@@ -236,7 +240,7 @@ metadata {
 
     	standardTile("auto", "device.autoTake", width: 2, height: 1, canChangeIcon: false, canChangeBackground: false, decoration:"flat") {
 			state "off", label: '', action: "autoTakeOn", icon: "https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/autooff.png", backgroundColor: "#ffffff"
-			state "on", label: '', action: "autoTakeOff", icon: "https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/autoon.png", backgroundColor: "#53a7c0"
+			state "on", label: '', action: "autoTakeOff", icon: "https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/autoon.png", backgroundColor: "#ffffff"
 		}
 
 //NeedlerP: Blank Tile to support layout
@@ -253,7 +257,7 @@ metadata {
 //NeedlerP: Additional functionality to turn on/off recording playback in lieu of live view
         standardTile("playStatus", "device.playStatus", width: 2, height: 1, canChangeIcon: false, canChangeBackground: false, decoration:"flat") {
       		state "live", label: "", action: "video", icon: "https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/livestream.png", backgroundColor: "#ffffff"
-    	  	state "video", label: "", action: "live", icon: "https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/playvideo.png",  backgroundColor: "#53a7c0"
+    	  	state "video", label: "", action: "live", icon: "https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/playvideo.png",  backgroundColor: "#ffffff"
 	    }
 
 
@@ -265,10 +269,10 @@ metadata {
 * details shortened as my cameras don't have PTZ capability
 
 		details(["videoPlayer",
-    "vidinfo", "playStatus",
+    "vidTime", "playStatus",
     "take", "cameraDetails",
          		"motion", "auto", 
-                "recordStatus", "status", "refresh",
+                "recordStatus", "status", "refresh","vidInfo",
                 "blank", "up", "blank", "zoomIn", "presetup", "patrolup",
                 "left", "home", "right", "blank", "presetgo", "patrolgo",
                 "blank", "down", "blank", "zoomOut", "presetdown", "patroldown"])
@@ -276,8 +280,8 @@ metadata {
 */
          details(["videoPlayer",
          		"playStatus", "cameraDetails",
-            "vidInfo",
-                "take", "motion", "auto","recordStatus", "status", "refresh"])
+            "vidTime",
+                "take", "motion", "auto","recordStatus", "status", "refresh", "vidInfo"])
 
 	}
 
@@ -336,7 +340,7 @@ def start() {
         log.trace "Live Stream Camera " + cameraId
             def hubStreamOutHome = getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "LiveStream", "cameraId=${cameraId}", 2, "OutHome")
     		def hubStreamInHome = getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "LiveStream", "cameraId=${cameraId}", 2, "InHome")
-//			log.trace hubStreamInHome
+			log.trace hubStreamInHome
 //    		log.trace hubStreamOutHome
     
     def dataLiveVideo = [
@@ -452,6 +456,20 @@ def getCameraID() {
 def seteventId(eventId) {
 //		log.trace "child seteventId: " + eventId
 		sendEvent(name:"vidInfo", value: eventId, displayed: false)
+        return
+}
+
+def seteventTime(eventTime) {
+//		log.trace "child seteventId: " + eventId
+        if (eventTime == "MJPEG") {
+        	sendEvent(name:"vidTime", value:"Cannot Stream MJPEG - change to H.264", displayed:false)
+		    sendEvent(name:"vidInfo", value:"Live", displayed:false)
+    		sendEvent(name:"playStatus", value:"live", displayed:false)
+
+        } else {
+	        sendEvent(name:"vidTime", value: eventTime, displayed:false)
+        }
+
         return
 }
 
@@ -683,6 +701,7 @@ def video() {
 def live() {
 	log.trace "Set Live"
     sendEvent(name:"vidInfo", value:"Live", displayed:false)
+    sendEvent(name:"vidTime", value:"Live", displayed:false)
     sendEvent(name:"playStatus", value:"live", displayed:false)
 }
 
@@ -691,10 +710,12 @@ def getVideoDetails() {
     def cameraId = getCameraID()
 //    def eventID = getEventId()
     sendEvent(name:"vidInfo", value:"getting data...", displayed:false)
+    sendEvent(name:"vidTime", value:"getting data...", displayed:false)
     def hubAction = queueDiskstationCommand_Child("SYNO.SurveillanceStation.Event", "List", "cameraIds=${cameraId}&orderMethod=1&limit=1", 5)
     log.trace "getVideoDetails hubaAction: " + hubAction
     return hubAction
- //	log.trace "video eventId: "+ parent.eventId
+//    postAction("/getInHomeURL")
+//	log.trace "video eventId: "+ parent.eventId
 }
 
 
@@ -703,11 +724,14 @@ def getplayStatus() {
     if (device.currentState("playStatus")?.value == "video") {
         def cameraId = getCameraID()
 	    sendEvent(name:"vidInfo", value:"getting data...", displayed:false)
-    	def hubAction = queueDiskstationCommand_Child("SYNO.SurveillanceStation.Event", "List", "cameraIds=${cameraId}&orderMethod=1&limit=1", 5)
-    	log.trace "getVideoDetails hubaAction: " + hubAction
+	    sendEvent(name:"vidTime", value:"getting data...", displayed:false)
+		def hubAction = queueDiskstationCommand_Child("SYNO.SurveillanceStation.Event", "List", "cameraIds=${cameraId}&orderMethod=1&limit=1", 5)
+//    	log.trace "getVideoDetails hubaAction: " + hubAction
+		updateHandler()
     	return hubAction
         } else {
         sendEvent(name:"vidInfo", value:"Live", displayed: false)
+        sendEvent(name:"vidTime", value:"Live", displayed: false)
     }
 }
 void logDebug(str) {
@@ -791,6 +815,7 @@ def initChild(Map capabilities)
     if (device.currentState("playStatus")?.value == "Live") { //Needlerp
 		sendEvent(name: "playStatus", value: "Live")
         sendEvent(name: "vidInfo", value:"Live")
+        sendEvent(name: "vidTime", value:"Live")
     }
 
 
@@ -816,4 +841,9 @@ def getStreamURL_Child(String api, String command, String params, int version, S
 private getPictureName() {
 	def pictureUuid = java.util.UUID.randomUUID().toString().replaceAll('-', '')
 	return device.deviceNetworkId.replaceAll(" ", "_") + "_$pictureUuid" + ".jpg"
+}
+
+
+private updateHandler() {
+    parent.postAction("/")
 }
