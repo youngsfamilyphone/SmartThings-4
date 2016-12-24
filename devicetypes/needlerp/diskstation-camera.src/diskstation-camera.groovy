@@ -302,6 +302,7 @@ metadata {
 
 mappings {
    path("/getInHomeURL") {
+ //  	log.trace "/getInHomeURL"
        action:
        [GET: "getInHomeURL"]
    }
@@ -845,5 +846,5 @@ private getPictureName() {
 
 
 private updateHandler() {
-    parent.postAction("/")
+    parent.postAction("/getInHomeURL")
 }
