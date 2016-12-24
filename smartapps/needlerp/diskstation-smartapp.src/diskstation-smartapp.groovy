@@ -604,7 +604,7 @@ def locationHandler(evt) {
                         def videoCodec = eventList.videoCodec.first()
 						log.trace "this camera eventId: " + eventId
                         log.trace "this camera eventTime: " + eventTime
-                        def eventTime = new Date( ((long)eventTimestamp) * 1000 ).format("HH:mm:ss dd-MMM-yyyy")
+                        def eventTime = new Date( ((long)eventTimestamp) * 1000 ).format("HH:mm:ss\r\ndd-MMM-yyyy")
                         log.trace "this camera eventTime (Format)" + eventTime
                         log.trace "this camera videoCodec: "+ videoCodec
                         it.seteventId(eventId)
