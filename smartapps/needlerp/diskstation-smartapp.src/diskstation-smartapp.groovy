@@ -89,7 +89,7 @@ def motionSetup()
                           "the success message, retrace these steps."
             }
             section("Optional Settings", hidden: false, hideable: true) {
-            	input "motionOffDelay", "number", title:"Seconds with no message before motion is deactivated:", defaultValue:60
+            	input "motionOffDelay", "number", title:"Seconds with no message before motion is deactivated:", defaultValue:30
             }
         }
     } else {
@@ -225,6 +225,8 @@ def getDSInfo() {
     queueDiskstationCommand("SYNO.API.Info", "Query", "query=SYNO.SurveillanceStation.Camera", 1)
     queueDiskstationCommand("SYNO.API.Info", "Query", "query=SYNO.SurveillanceStation.PTZ", 1)
     queueDiskstationCommand("SYNO.API.Info", "Query", "query=SYNO.SurveillanceStation.ExternalRecording", 1)
+    queueDiskstationCommand("SYNO.API.Info", "Query", "query=SYNO.SurveillanceStation.Event", 1)
+
 
     // login
     executeLoginCommand()
@@ -310,17 +312,20 @@ def finalizeChildCommand(commandInfo) {
 // This unreliable in enviroments with many cameras set to AutoTake
 def getFirstChildCommand(commandType) {
 	def commandInfo = null
+   log.trace "trying getFirstChildCommand for " + commandType
 
 	// get event type to search for
     def searchType = null
 	switch (commandType) {
-        case getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetSnapshot"):
+		case getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetSnapshot"):
         	searchType = "takeImage"
+            log.trace "searchtype = takeImage"
         	break
     }
 
     if (searchType != null) {
         def children = getChildDevices()
+        log.trace "children: "+ children
         def startTime = now() - 40000
 
         if (state.lastEventTime != null) {
@@ -336,6 +341,7 @@ def getFirstChildCommand(commandType) {
             // get the events from the child
             def events = it.eventsSince(new Date(startTime))
             def typedEvents = events.findAll { it.name == searchType }
+            log.trace "events: "+ events
 
 			if (typedEvents) {
              	typedEvents.each { event ->
@@ -353,8 +359,10 @@ def getFirstChildCommand(commandType) {
 			}
         }
     }
+    log.trace commandInfo
     return commandInfo
 }
+
 
 
 
@@ -372,6 +380,7 @@ def determineCommandFromResponse(parsedEvent, bodyString, body) {
         	if (body.data.sid != null) { return getUniqueCommand("SYNO.API.Auth", "Login") }
             if (bodyString.contains("maxVersion")) { return getUniqueCommand("SYNO.API.Info", "Query") }
             if (body.data.cameras != null) { return getUniqueCommand("SYNO.SurveillanceStation.Camera", "List") }
+            if (body.data.events !=null) { return getUniqueCommand("SYNO.SurveillanceStation.Event", "List") }
             //if (body.data.ptzPan != null) { return getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetCapability")}
             if (body.data.ptzPan != null) { return getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetCapabilityByCamId")}
             if ((body.data.total != null) && (body.data.offset != null))
@@ -397,11 +406,15 @@ def doesCommandReturnData(uniqueCommand) {
         case getUniqueCommand("SYNO.SurveillanceStation.Camera", "List"):
         case getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetCapability"):
         case getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetCapabilityByCamId"):
+        case getUniqueCommand("SYNO.SurveillanceStation.Camera", "Enable"):  //PMN
+        case getUniqueCommand("SYNO.SurveillanceStation.Camera", "Disable"):  //PMN
         case getUniqueCommand("SYNO.SurveillanceStation.PTZ", "ListPreset"):
         case getUniqueCommand("SYNO.SurveillanceStation.PTZ", "ListPatrol"):
         case getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetSnapshot"):
-        case getUniqueCommand("SYNO.SurveillanceStation.VideoStreaming", "Stream"):  //PMN
-        	return true
+  //      case getUniqueCommand("SYNO.SurveillanceStation.VideoStreaming", "Stream"):  //PMN
+   //     case getUniqueCommand("SYNO.SurveillanceStation.Streaming", "EventStream"):  //PMN
+        case getUniqueCommand("SYNO.SurveillanceStation.Event", "List"): //PMN
+return true
     }
 
     return false
@@ -565,7 +578,54 @@ def locationHandler(evt) {
 
         if (commandType != "") {
         	log.trace "event = ${description}"
+            
+            // PAUL NEEDLER EVENTID SCRIPT STARTS HERE
+             switch (commandType) {
+                case getUniqueCommand("SYNO.SurveillanceStation.Event", "List"):
+//	            log.trace "Extract eventId update child objects"
+    	        def eventList = body.data.events 
+//   			def eventId = eventList.eventId.first() 
+//            	log.trace "eventId: " + eventId
+            	def children = getChildDevices()
+ //               log.trace "children: "+ children
+				children.each {
+                def childObj = it;
+                def thisCamera = state.SSCameraList.find { createCameraDNI(it).toString() == childObj.deviceNetworkId.toString() }
+                if (thisCamera) {
+                	if (childObj.deviceNetworkId.toString() == body.data.events.camera_name.first()) {
+//	                   log.trace "Event camera matched to current child device"
+//                   	state.eventId = body.data.events.eventId
+//                      state.eventTime = body.data.events.startTime
+//                      state.videoCodec = body.data.events.videoCodec
+                        log.trace "videoCodec: "+ state.videoCodec
+// 			            log.trace "this camera state.eventId: "+ state.eventId.first()
+                        def eventId = eventList.eventId.first() 
+                        def eventTimestamp = eventList.startTime.first()
+                        def videoCodec = eventList.videoCodec.first()
+						log.trace "this camera eventId: " + eventId
+                        log.trace "this camera eventTime: " + eventTime
+                        def eventTime = new Date( ((long)eventTimestamp) * 1000 ).format("HH:mm:ss\r\ndd-MMM-yyyy")
+                        log.trace "this camera eventTime (Format)" + eventTime
+                        log.trace "this camera videoCodec: "+ videoCodec
+                        it.seteventId(eventId)
+                        if (videoCodec == "MJPEG") { //Can't stream MJPEG - return error and revert to Live in child
+                        	log.trace "MJPEG Stream found - cannot stream this AVI file)"
+                        	it.seteventTime("MJPEG")
+                        } else {
+                        	it.seteventTime(eventTime)
+                        }
+                        
+ 					}
+//                        child.seteventId(eventId)
+						
+                        }
 
+           		 }  //children.each
+ //                break
+			}
+            
+            
+            //  PAUL NEEDERL EVENTID SCRIPT ENDS HERE
             // guess who wants this type (commandType)
             def commandInfo = getFirstChildCommand(commandType)
 
@@ -641,6 +701,7 @@ def locationHandler(evt) {
    	}
 }
 
+
 def handleErrors(commandData, errorData) {
 	if (errorData) {
     	log.trace "trying to handle error ${errorData}"
@@ -667,7 +728,7 @@ def handleErrors(commandData, errorData) {
 
 def checkForRedoLogin(commandData, errorData) {
 	if (errorData != null) {
-        log.trace errorData
+        log.trace "errorData: " + errorData
         if (errorData?.code == 102 || errorData?.code == 105) {
             log.trace "relogging in"
 			executeLoginCommand()
@@ -683,9 +744,13 @@ def checkForRedoLogin(commandData, errorData) {
 
 def handleErrorsIgnore(commandData, errorData) {
 	if (errorData) {
-    	log.trace "trying to handle error ${errorData}"
-    }
-    checkForRedoLogin(commandData, errorData)
+	        if (errorData?.code == 117) {
+        	    log.debug "Error: Manager level access required to enable/disable cameras. Please elevate access in Surveillance Station."
+       		} else {
+    			log.trace "trying to handle error ${errorData}"
+    		}
+        }
+    	checkForRedoLogin(commandData, errorData)
 }
 
 private def parseEventMessage(Map event) {
@@ -923,7 +988,7 @@ def createStreamURL(Map commandData, String location) {
 //                log.trace hubaction
             	return hubaction
                } else {
-               log.trace "OutHome"
+//               log.trace "OutHome"
            		def hubaction = new physicalgraph.device.HubAction(
                """${ipOutHome}${url}""")
  //              log.trace hubaction
@@ -950,6 +1015,7 @@ def sendDiskstationCommand(Map commandData) {
 }
 
 def createCommandData(String api, String command, String params, int version) {
+//	log trace "createCommandData"
     def commandData = [:]
     commandData.put('api', api)
     commandData.put('command', command)
@@ -960,7 +1026,7 @@ def createCommandData(String api, String command, String params, int version) {
     if (getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetSnapshot") == getUniqueCommand(commandData)) {
 		commandData.put('acceptType', "image/jpeg");
     }
-
+//	log.trace "commandData: " + commandData
     return commandData
 }
 
@@ -1055,7 +1121,7 @@ def handleMotionCleanup() {
 	def children = getChildDevices()
     def nextTimeDefault = 120000; //1000000
     def nextTime = nextTimeDefault;
-    log.debug "handleMotionCleanup"
+//    log.debug "handleMotionCleanup"
 
     children.each {
     	def newTime = checkMotionDeactivate(it)
@@ -1090,7 +1156,7 @@ def checkMotionDeactivate(child) {
     	timeRemaining = 0
     }
 
-    log.debug "checkMotionDeactivate ${cameraDNI} timeRemaining = ${timeRemaining}"
+//    log.debug "checkMotionDeactivate ${cameraDNI} timeRemaining = ${timeRemaining}"
 
     // we can end motion early to avoid unresponsiveness later
     if ((timeRemaining != null) && (timeRemaining < 15)) {
@@ -1192,6 +1258,16 @@ def getPatrolIdByString(childDevice, name) {
     return null
 }
 
+
+def getEventId(String api, String command, String params, int version) {
+    log.trace "call getEventId"
+    queueDiskstationCommand(api, command, params, version)
+//   log.trace "call getEventId:" + "TBC" //+ state.eventList.eventId.first()
+	    log.trace "getEventId returned"
+		return "getEventId Test" //state.eventList.eventId.first()
+ }
+ 
+
 import groovy.time.TimeCategory
 
 def refreshCamera(childDevice) {
@@ -1199,7 +1275,6 @@ def refreshCamera(childDevice) {
     //runIn(8, "startPolling")
     def timer = new Date()
 		use(TimeCategory) {
-    	timer = timer + 3.second
 	}
     runOnce(timer, "startPolling")
 }
@@ -1255,3 +1330,45 @@ def getRefreshState(child) {
 def waitingRefresh(child) {
 	return (child.currentState("refreshState")?.value == "waiting")
 }
+
+/// Parse Events
+private postAction(uri){
+  def getDeviceID = getDeviceId(userip,userport)  
+  log.trace "getDeviceID: "+ getDeviceID
+  def hubAction = new physicalgraph.device.HubAction(
+    method: "POST",
+    path: uri,
+    headers: headers
+  )//,delayAction(1000), refresh()]
+  log.debug("Would like to postAction:" + hubAction)
+  log.debug("Executing hubAction on " + getHostAddress())
+  //log.debug hubAction
+  return hubAction    
+}
+
+// ------------------------------------------------------------------
+// Helper methods
+// ------------------------------------------------------------------
+
+def parseDescriptionAsMap(description) {
+	description.split(",").inject([:]) { map, param ->
+		def nameAndValue = param.split(":")
+		map += [(nameAndValue[0].trim()):nameAndValue[1].trim()]
+	}
+}
+
+private getHeader(){
+	log.debug "Getting headers"
+    def headers = [:]
+    headers.put("HOST", getHostAddress())
+    return headers
+}
+
+private delayAction(long time) {
+	new physicalgraph.device.HubAction("delay $time")
+}
+
+private getHostAddress() {
+	return "${userip}:${userport}"
+}
+
