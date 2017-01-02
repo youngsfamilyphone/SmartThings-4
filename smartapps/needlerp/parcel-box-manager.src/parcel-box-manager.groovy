@@ -19,42 +19,66 @@ definition(
     author: "Paul Needler",
     description: "SmartApp to automatically control a smart parcel box using a Fibaro RGBW controller (Red, Green LED, 12v lock and push-button) plus a Contact Sensor for the box lid.",
     category: "Convenience",
-    iconUrl: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png",
-    iconX2Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png",
-    iconX3Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png")
+    iconUrl: "https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/App-MailboxMonitor.png",
+    iconX2Url: "https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/App-MailboxMonitor@2x.png",
+    iconX3Url: "https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/App-MailboxMonitor@2x.png")
 
 
 preferences {
+	page(name: "selections") // call dynamic page to allow enumeration of installed routines
+    }
+
+def selections() {
+	dynamicPage(name: "selections", ttile: "Provide your details", install: true, uninstall: true) {
 	section("Box Controller") {
-		input "boxController", "capability.lock", required:true, title:"Select Fibaro RGBW as main controller"
+		input("boxController", "capability.lock", required:true, title:"Select Fibaro RGBW as main controller")
 	}
     section("Box Lid Sensor") {
-    	input "boxSensor", "capability.contactSensor", required:true, title:"Select box lid contact sensor" 
+    	input("boxSensor", "capability.contactSensor", required:true, title:"Select box lid contact sensor")
     }
+    section("Switch to empty box") {
+    	input("emptySwitch", "capability.switch", required:false, title:"Select switch to empty box manually (optional)")
+    }    
     section ("Operational Hours") {
-    	input "unlockTime", "time", title:"Unlock Time", defaultValue:"08:00 am"
-        input "lockTime", "time", title:"Lock Time", defaultValue:"22:00 pm"
-        input "boxOpenTimeout", "number", title:"How long is the box lid open before error notification sent? (minutes)", defaultValue:"5"
-        input "boxClearanceTimeout", "number", title:"How long after full box unlocked for emptying before re-locking? (minutes)", defaultValue:"2"
-        input "openTime", "number", title:"How long after a manual box unlock will the box re-lock? (minutes)", defaultValue:"2"
+    	input("unlockTime", "time", title:"Unlock Time", defaultValue:"08:00 am")
+        input("lockTime", "time", title:"Lock Time", defaultValue:"22:00 pm")
+        }
+    section ("Timeout settings") {    
+		input("boxOpenTimeout", "number", title:"How long is box lid left open for, before error notification sent? (minutes)", defaultValue:"5")
+		input("openTime", "number", title:"How long after a manual box unlock will box re-lock if not opened? (minutes)", defaultValue:"2")
+        input("boxClearanceTimeout", "number", title:"How long after clearance request for box emptying will box re-lock if not opened? (minutes)", defaultValue:"2")
     }
     section("Automatic Unlocking") {
-    	input "doorBell", "capability.contactSensor", required:false, title:"Secondary Sensor"
-		input "autoOpenCounter", "number", title:"How many seconds after box button pressed is box unlocked?" , defaultValue:"8"
-        input "autoWaitTime", "number", title:"How long after doorbell is pressed can box button pushed to start auto-unlock (minutes)", defaultValue:"3"
-        input "autoOpenTimeout", "number", title:"How long after auto-open to re-lock if box not opened (minutes)", defaultValue:"2"
+    	input("doorBell", "capability.contactSensor", required:false, title:"Secondary Sensor", submitOnChange: true)
+		if (doorBell) {    
+        input("autoWaitTime", "number", title:"How long after $doorBell is pressed can box button be pushed to auto-unlock (minutes)", defaultValue:"3")
+		input("autoOpenCounter", "number", title:"How many seconds after box button pressed is box unlocked?" , defaultValue:"8")
+        input("autoOpenTimeout", "number", title:"How long after automatic unlock will box re-lock if not opened (minutes)", defaultValue:"2")
         }
+        }
+        
+    // get the available routines / actions
+    def actions = location.helloHome?.getPhrases()*.label
+    if (actions) {
+            // sort them alphabetically
+            actions.sort()
+            section("Routines") {
+ //              log.trace actions
+                // use the actions as the options for an enum input
+               input "allowdeliveryRoutine", "enum", title: "Select an action to allow delivery when box is full", options: actions
+               input "boxclearanceRoutine", "enum", title: "Select an action to open box for emptying", options: actions
+			}
+    	}
+    }    
 }
 
 def installed() {
 	log.debug "Installed with settings: ${settings}"
-
 	initialize()
 }
 
 def updated() {
 	log.debug "Updated with settings: ${settings}"
-
 	unsubscribe()
 	initialize()
 }
@@ -63,11 +87,15 @@ def initialize() {
 //	state.boxStatus = "unknown"
 	subscribe(boxController, "switchCh4.off", boxButtonhandler) // switchCh4 is the push button
     subscribe(boxController, "autoOpen", autoOpenhandler) // catch changes to auto-open status in app
+    subscribe(boxController, "powerState", powerhandler) // catch changes to auto-open status in app
     subscribe(boxController, "allowDelivery", allowDeliveryhandler) // catch when devicehandler allow delivery button pressed
     subscribe(boxController, "clearBox", clearBoxhandler) // catch when devicehandler clear box button pressed
+    subscribe(boxController, "forceLock", forceLockhandler) // catch when devicehandler force lock button pressed
     subscribe(boxSensor, "contact", boxSensorhandler)
 	subscribe(doorBell, "contact", doorBellhandler)
+    subscribe(emptySwitch, "switch.on", clearBoxhandler) // catch manual switch to clear box
 	// add subscriptions for Routines  - allowboxopen and clearbox
+	subscribe(location, "routineExecuted", routinehandler)
 
 
 // Schedule jobs here
@@ -79,6 +107,7 @@ def initialize() {
 def boxButtonhandler(evt) {  // box open request
 //	log.trace "boxButtonhandler"
     log.trace "boxStatus: "+ state.boxStatus
+    if (state.forceOff != true) { // box is turned off within app - do nothing
     if (state.boxStatus == "empty") {  // box is empty, so it can be unlocked if during working hours
     	def between = timeOfDayIsBetween(unlockTime, lockTime, new Date(), location.timeZone)
         if (between) {
@@ -89,55 +118,74 @@ def boxButtonhandler(evt) {  // box open request
         }
     	
     } else { // box is full or unknown status
-    	sendNotification ("Box Open requested by push-button")
         // look at how we can change red light to flashing
         log.trace "autoOpen state: "+ state.autoOpen
         if (state.autoOpen == "on") { // auto-open after prescribed time
         	if (state.bellState == "pressed") { // doorbell was pressed within time limit
-            	runIn(autoOpenCounter, unlockBox)
-                sendNotification("Box automatically unlocked")
+            	def action = setMode("autoOpen")
+                runIn(autoOpenCounter, unlockBox)
+                sendNotification("Auto Delivery Activated")
                 runIn(60 * autoOpenTimeout, checkBoxStatus)
             } else {
-            	sendNotification("autoOpen fired, but doorbell not pressed")
+            	sendNotification("Delivery Requested (doorbell fail)")
+                def mode = setMode("waiting")
             }
         } else {
         log.trace "auto-open not true, so wait for manual open"
-        // do nothing 
+        sendNotification ("Delivery Requested (manual)")
+        def action = setMode("waiting")
+		// do nothing 
         }
         
+    }
     }
 }
 
 def boxSensorhandler(evt) {
 //	log.trace "boxSensorhandler"
         if (evt.value == "open") { //box is open
-        state.boxLid = "open"
+//        state.boxLid = "open"
+        def actionl = setlidStatus("open")
         log.trace "box opened"
-        state.lidOpened = now()
+        def action = setlidOpened(now())
+        //state.lidOpened = now()
         runIn(60 * boxOpenTimeout, checkBoxStatus)
     } else { // box was closed
         log.trace "box closed"
-        state.boxLid = "closed"
+//        state.boxLid = "closed"
+        def actionl = setlidStatus("closed")
         switch (state.boxStatus) {
         case("empty"):  // box was empty, so assume now full
         	log.trace "box empty"
             sendNotification("Parcel delivered")
+            state.parcelCount = state.parcelCount + 1
+            def parcelcount = setparcelCount(state.parcelCount)
             def action = lockBox()
-            state.boxStatus = "full"
-            break
+		    def actionM = setMode("locked")
+//            state.boxStatus = "full"
+			def actionB = setboxStatus("full")
+			break
         case("full"): // box already full, so it's a repeat parcel drop
         	log.trace "box full"
             sendNotification("additional parcel delivered")
+            state.parcelCount = state.parcelCount + 1
+            def parcelcount = setparcelCount(state.parcelCount)            
         	def action = lockBox()
-            state.boxStatus = "full"
-            break
+		    def actionM = setMode("locked")
+//            state.boxStatus = "full"
+ 			def actionB = setboxStatus("full")
+			break
         case("clearingfull"): // box just emptied
         	log.trace "box cleared"
             sendNotification("box emptied")
-            state.boxStatus = "empty"
+            state.parcelCount = 0
+            def parcelcount = setparcelCount(state.parcelCount)
+//            state.boxStatus = "empty"
+			def actionS = setboxStatus("empty")
            	def between = timeOfDayIsBetween(unlockTime, lockTime, new Date(), location.timeZone)
             if (between) {
             	def action = unlockBox()
+				def actionM = setMode("unlocked")
             } else {
             	def action = nightBox()
             }
@@ -145,17 +193,22 @@ def boxSensorhandler(evt) {
         case("clearingempty"): // box just emptied
         	log.trace "box cleared"
             sendNotification("box emptied")
-            state.boxStatus = "empty"
+            state.parcelCount = 0
+            def parcelcount = setparcelCount(state.parcelCount)
+//            state.boxStatus = "empty"
+			def actionS = setboxStatus("empty")
            	def between = timeOfDayIsBetween(unlockTime, lockTime, new Date(), location.timeZone)
             if (between) {
             	def action = unlockBox()
+			    def actionM = setMode("unlocked")
             } else {
             	def action = nightBox()
             }
             break    
         default:
         	log.debug "box closed, unknown status"
-            state.boxStatus = "unknown"
+        	def action = setboxStatus("unknown")
+//			state.boxStatus = "unknown"
     	}
     }
 }
@@ -173,6 +226,19 @@ def autoOpenhandler(evt) {
     log.trace "autoOpen: "+state.autoOpen
     } 
     
+def powerhandler(evt) { // handle manual power on/off commands from devicehandler
+	log.trace "powerhandler"
+    if (evt.value=="on") { // power on request
+    	log.trace "power on"
+        state.forceOff = false
+        def action = morningUnlock(false)
+    } else {
+    	log.trace "power off"
+        state.forceOff = true
+        def action = nightBox(false)
+    }
+}
+
 def allowDeliveryhandler(evt) {
 //	log.trace "allowDeliveryhandler"
     def action = allowDelivery()
@@ -182,6 +248,31 @@ def clearBoxhandler(evt) {
 	log.trace "clearBoxhandler"
     def action = clearancerequest()
 } 
+
+def routinehandler(evt) {
+	log.trace "routinehandler"
+    switch (evt.displayName) {
+    case(allowdeliveryRoutine):
+       	log.trace "Allow Delivery called via Routine" 
+        def action = allowDelivery()
+        break
+    case(boxclearanceRoutine):
+    	log.trace "Box Clearance called via Routine"
+        def action = clearancerequest()
+        break 
+    }
+}
+
+def forceLockhandler(evt) {
+	log.trace "forceLockhandler: " + evt.value
+    if (evt.value == "lock") {
+    def action = lockBox()
+    def mode = setMode("locked")
+    } else {
+    def action = unlockBox()
+    def mode = setMode("unlocked")
+    }
+}
 
 //Helper methods
 def clearBell() {
@@ -203,21 +294,32 @@ def lockBox() {
     def actionL = boxController.lock()
 }
 
-def nightBox() {
+def nightBox(param) {
 	log.trace "nightBox"
     log.trace "nightBox boxStatus: "+ state.boxStatus
     def actionG = boxController.offGreen()
     def actionR = boxController.offRed()
     def actionL = boxController.lock()
+    def actionM = setMode("off")
+    if (param != false) {
+		def actionP = boxController.powerOff()
+    }
 }
     
-def morningUnlock() {
+def morningUnlock(param) {
 	log.trace "morningUnlock"
     log.trace "morning boxStatus:" + state.boxStatus
+    if (state.forceOff != true) { // if box manually turned off, do nothing
     if (state.boxStatus == "empty") {
     	def action = unlockBox()
+        def action1= setMode("unlocked")
     } else {
         def action = lockBox()
+        def action1 = setMode("locked")
+    }
+    if (param != false) {
+    	def action = boxController.powerOn()
+    }
     }
 }
 
@@ -235,6 +337,7 @@ def checkBoxStatus() {
             if (elapsed >= threshold) {
             	sendNotification ("Parcel box has been left open")
                 log.trace "Notification sent: Lid Left Open"
+                def action = setMode("error")
             	} else {
                 runIn (60 / 2 * boxOpenTimeout, checkBoxStatus) // time threshold not yet reached - schedule to check again shortly    
                 log.trace "boxOpenTimeout not yet exceeded - checkBoxStatus re-scheduled"
@@ -247,22 +350,29 @@ def checkBoxStatus() {
                 	switch (state.boxStatus) {
                 	case("clearingfull"): // box was previously full sore-lock as box not opened
                     	log.trace "checkBoxStatus: clearingfull"
-                    	state.boxStatus = "full"
+//                    	state.boxStatus = "full"
+						def action1 = setboxStatus("full")
                         def action = lockBox()
+                        def mode = setMode("locked")
                         break
                     case("clearingempty"): // box was empty, clearing button pressed but not opened
                     	log.trace "checkBoxStatus: clearingempty"
-                        def action = unlockBox()
+						def action = unlockBox()
+						def mode = setMode("unlocked")
                     	break
                     case ("full"):  // re-lock to make sure - manual allow delivery
                     	log.trace "checkBoxStatus: full"
-                        state.boxStatus="full"
-                    	def action = lockBox()
+//                      state.boxStatus="full"
+						def action1 = setboxStatus("full")
+						def action = lockBox()
+                        def mode = setMode("locked")
                         break
                     case ("empty"):
                     	log.trace "checkBoxStatus: empty"
-                        state.boxStatus="empty"
+//                        state.boxStatus="empty"
+						setboxStatus("empty")
                     	def action = unlockBox()
+                        def mode = setMode("unlocked")
                         break
                     default:
                     	log.trace "checkBoxStatus: unknown status"
@@ -271,12 +381,15 @@ def checkBoxStatus() {
                 } else {
                 	log.trace "checkBoxStatus: nightBox"
                 	def action = nightBox()
+                    def mode = setMode("off")
                 }
             }
 }
 
 def allowDelivery() { //button pressed, allow remote delivery
 	log.trace "allow delivery"
+	def actionM = setMode("accept")
+    sendNotification "Box unlocked to allow delivery"
     def action = unlockBox()
     runIn(60*openTime, checkBoxStatus)
 }
@@ -284,15 +397,48 @@ def allowDelivery() { //button pressed, allow remote delivery
 def clearancerequest() { // button presssed to empty box
 	log.trace "clearancerequest"
     log.trace "boxStatus: "+ state.boxStatus
-    if (state.boxStatus == "empty" || state.boxStatus == "clearingfull" || state.boxStatus == "unknown") {
-    	state.boxStatus = "clearingfull"
-    	log.trace "box clearance request submitted"
+    sendNotification "Box unlocked for emptying"
+	if (state.boxStatus == "full" || state.boxStatus == "clearingfull" || state.boxStatus == "unknown") {
+    	//state.boxStatus = "clearingfull"
+    	log.trace "Box is full"
+        def boxStatus = setboxStatus("clearingfull")
+		log.trace "box clearance request submitted"
+        def mode = setMode("clearing")
     	def action = unlockBox()
     	runIn (60*boxClearanceTimeout, checkBoxStatus)
     } else { // box is empty or clearingempty
     	def action = unlockBox()
         log.debug ("box clearance request but box already empty")
-        state.boxStatus = "clearingempty"
+//        state.boxStatus = "clearingempty"
+		def boxStatus = setboxStatus("clearingempty")
         runIn (60*boxClearanceTimeout, checkBoxStatus)     
     }
+}
+
+def setboxStatus(status) {  // set box status and update devicehandler
+	state.boxStatus = status
+    log.trace "setboxStatus: " + state.boxStatus
+    boxController.setboxStatus(status)
+}
+
+def setlidStatus(status) {  // set lid status and update devicehandler
+	state.boxLid = status
+    log.trace "boxLid: " + state.boxLid
+    boxController.setlidStatus(status)
+}  
+
+def setMode(mode) { // captures mode to update devicehandler
+	boxController.setMode(mode)
+}	
+    
+def setlidOpened(time) { //time lid last opened
+	state.lidOpened = time
+    def eventTime = new Date( ((long)time)).format("HH:mm, EEE dd MMM")
+    boxController.setlidOpened(eventTime)
+    log.trace "lid Opened: "+ eventTime
+}
+
+def setparcelCount(val) { // send count of parcels
+	log.trace "parcelCount: "+ val
+    boxController.setparcelCount(val)
 }
