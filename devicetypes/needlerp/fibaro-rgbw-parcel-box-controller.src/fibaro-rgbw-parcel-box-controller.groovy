@@ -65,6 +65,7 @@ metadata {
         attribute "powerState", "enum", ["on", "off"]
         attribute "forceLock", "string"
         attribute "forceReset", "string"
+        attribute "bellStatus", "enum", ["on", "off"]
 
         // Custom Commands:
         command "test"
@@ -130,6 +131,7 @@ metadata {
         command "forceLock"
         command "forceUnlock"
         command "forceReset"
+        command "setBellStatus"
 
         fingerprint deviceId: "0x1101", inClusters: "0x27,0x72,0x86,0x26,0x60,0x70,0x32,0x31,0x85,0x33"
     }
@@ -233,7 +235,7 @@ metadata {
  //           state "levelCh3", label:'${currentValue}%'
  //       }
 
-        standardTile("switchCh4", "device.switchCh4", height: 1, width: 2, inactiveLabel: false, canChangeIcon: false, decoration:"flat") {
+        standardTile("switchCh4", "device.switchCh4", height: 1, width: 1, inactiveLabel: false, canChangeIcon: false, decoration:"flat") {
             state "off", label:"", /*action:"onCh4",*/ icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/buttonOn.png"
             state "on", label:"", /*action:"offCh4",*/ icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/buttonOff.png"
         }
@@ -370,12 +372,12 @@ metadata {
         
         standardTile("summary", "device.mode", width: 1, height: 1, decoration:"flat") {
         	state "off", label:"off", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/summaryOff.png", backgroundColor:"#FF0000"
-            state "unlocked", label:"unlocked", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/summaryUnlocked.png", backgroundColor:"#D8D8D8"
-            state "locked", label:"locked", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/summaryLocked.png", backgroundColor:"#008000"
+            state "unlocked", label:"unlocked", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/summaryUnlocked.png", backgroundColor:"#337333"
+            state "locked", label:"locked", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/summaryLocked.png", backgroundColor:"#cc0000"
             state "autoOpen", label:"Automatic Accept", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/summaryAccept.png", backgroundColor:"#53a7c0"
             state "accept", label:"Accepting Parcel", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/summaryAccept.png", backgroundColor:"#53a7c0"
-            state "clearing", label:"clearing", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/summaryClearing.png", backgroundColor:"#53a7c0"
-            state "waiting", label:"Waiting", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/summaryWaiting.png", backgroundColor:"#53a7c0"
+            state "clearing", label:"emptying box", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/summaryClearing.png", backgroundColor:"#53a7c0"
+            state "waiting", label:"Unlock requested", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/summaryWaiting.png", backgroundColor:"#53a7c0"
             state "error", label:"ERROR!!", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/summaryError.png", backgroundColor:"#FF0000"
         }
         
@@ -404,7 +406,9 @@ metadata {
         standardTile("forceLock", "device.forceLock", inactiveLabel:false, width: 2, height:1, decoration:"flat") {
         	state "unlock", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/forceLock.png", action:"forceLock"
         	state "lock", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/forceUnlock.png", action:"forceUnlock"
-        }
+        	state "forceunlock", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/forceLock.png", action:"forceLock"
+        	state "forcelock", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/forceUnlock.png", action:"forceUnlock"
+}
 
         standardTile("boxStatus", "device.boxStatus", width:2, height: 1, inactiveLabel:true, decoration:"flat") {
 			state "empty", label:"", icon: "https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/isEmpty.png", defaultstate: true
@@ -415,6 +419,10 @@ metadata {
         standardTile("lidStatus", "device.lidStatus", width:2, height:1, inactiveLabel:true, decoration:"flat") {
             state "closed", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/closed.png", defaultState: true
         	state "open", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/open.png"
+        }
+        standardTile("bellStatus", "device.bellStatus", height: 1, width: 1, inactiveLabel: false, canChangeIcon: false, decoration:"flat") {
+            state "off", label:"", /*action:"onCh3",*/ icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/bellOff.png"
+            state "on", label:"", /*action:"offCh3",*/ icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/bellOn.png"
         }
        
         valueTile("lidOpened", "device.lidOpened", width:3, height:1) {
@@ -444,7 +452,7 @@ metadata {
             "switchCh4", /*"levelCh4Slider", "levelCh4Tile", */
             
             // Box Controller value tiles
-            "lidOpened", "parcelCount",
+            "bellStatus", "lidOpened", "parcelCount",
             
 
 			// The main multitile:
@@ -2229,6 +2237,7 @@ def powerOff() {
 def unlock() {
 	log.trace "unlock"
     sendEvent(name:"lock", value:'unlocked', isStateChange:"true")
+    state.forceLock = false
     sendEvent(name:"forceLock", value:'unlock')
     def cmds = []
     (1..4).each { i -> if ( "Blue" == state.channelMapping[i] ) { cmds << offChX(i) } }
@@ -2239,6 +2248,7 @@ def unlock() {
 def lock() {
 	log.trace "lock"
     sendEvent(name: "lock", value:'locked', isStateChange:"true")
+    state.forceLock = false
     sendEvent(name: "forceLock", value:'lock')
     def cmds = []
     (1..4).each { i -> if ( "Blue" == state.channelMapping[i] ) { cmds << onChX(i) } }
@@ -2248,13 +2258,14 @@ def lock() {
 
 def forceLock() {
 	log.trace "force lock"
-    sendEvent(name:"forceLock", value:'lock')
+    sendEvent(name:"forceLock", value:'forcelock')
 }
 
 def forceUnlock() {
 	log.trace "force unlock"
-    sendEvent(name:"forceLock", value:'unlock')
+    sendEvent(name:"forceLock", value:'forceunlock')
 }
+
 def allowDelivery() {
     sendEvent(name: "allowDelivery", value:'on', isStateChange:"true")
 	log.trace "allowDelivery"
@@ -2263,6 +2274,11 @@ def allowDelivery() {
 def clearBox() {
     sendEvent(name: "clearBox", value:'on', isStateChange:"true")
 	log.trace "clearBox"
+}
+
+def forceReset() {
+	log.trace "forceReset"
+    sendEvent(name:"forceReset", value:'on', isStateChange:"true")
 }
 
 def setboxStatus(status) {
@@ -2299,3 +2315,8 @@ def setparcelCount(val) {
 	log.trace "parcel Count: "+ val
     sendEvent (name: "parcelCount", value: val, displayed: "false")
 }
+
+def setBellStatus(val) {
+	log.trace "bell status: "+ val
+    sendEvent (name:"bellStatus", value: val, displayed:"false")
+    }
