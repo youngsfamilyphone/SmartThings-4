@@ -91,6 +91,7 @@ def initialize() {
     subscribe(boxController, "allowDelivery", allowDeliveryhandler) // catch when devicehandler allow delivery button pressed
     subscribe(boxController, "clearBox", clearBoxhandler) // catch when devicehandler clear box button pressed
     subscribe(boxController, "forceLock", forceLockhandler) // catch when devicehandler force lock button pressed
+    subscribe(boxController, "forceReset", forceResethandler) //catch when devicehandler force reset/ force Empty button pressed
     subscribe(boxSensor, "contact", boxSensorhandler)
 	subscribe(doorBell, "contact", doorBellhandler)
     subscribe(emptySwitch, "switch.on", clearBoxhandler) // catch manual switch to clear box
@@ -217,6 +218,7 @@ def doorBellhandler(evt) {
 //log.trace "doorBellhandler"
 if (evt.value=="open") // Bell was pushed
 	state.bellState = "pressed"
+    def bellStatus = boxController.setBellStatus("on")
     runIn(60 * autoWaitTime, clearBell)
 }
 
@@ -265,33 +267,44 @@ def routinehandler(evt) {
 
 def forceLockhandler(evt) {
 	log.trace "forceLockhandler: " + evt.value
-    if (evt.value == "lock") {
+    if (evt.value == "forcelock") {
     def action = lockBox()
     def mode = setMode("locked")
-    } else {
+    } else if (evt.value == "forceunlock") {
     def action = unlockBox()
     def mode = setMode("unlocked")
+    } else { //normal unlock so do nothing
     }
+}
+
+def forceResethandler(evt) {
+	log.trace "forceResethandler"
+    def action = unlockBox()
+    def mode = setMode("unlocked")
+	state.parcelCount = 0
+    def parcelcount = setparcelCount(state.parcelCount)
+    def boxStatus = setboxStatus("empty")  
 }
 
 //Helper methods
 def clearBell() {
 	log.trace "clearBell"
+    def bellStatus = boxController.setBellStatus("off")    
     state.bellState = null
 }
 
 def unlockBox()  {//unlocks box, irrespective of box contents
 	log.trace "unlockBox"
+    def actionL = boxController.unlock()
     def actionG = boxController.onGreen()
     def actionR = boxController.offRed()
-    def actionL = boxController.unlock()
 }
  
 def lockBox() {
 	log.trace "lockBox"
+    def actionL = boxController.lock()
     def actionR = boxController.onRed()
     def actionG = boxController.offGreen()
-    def actionL = boxController.lock()
 }
 
 def nightBox(param) {
