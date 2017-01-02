@@ -37,20 +37,34 @@ metadata {
         capability "Power Meter"
         capability "Refresh"
         capability "Polling"
+        capability "Lock" // Lock added for Box Controller
 
         // Standard Attributes (for the capabilities above):
         attribute "switch", "enum", ["on", "off"]
         attribute "level", "number"
-        attribute "hue", "number"
-        attribute "saturation", "number"
-        attribute "color", "string"
+ //       attribute "hue", "number"
+ //       attribute "saturation", "number"
+ //       attribute "color", "string"
         attribute "energy", "number"
         attribute "power", "number"
 
         // Custom Attributes:
-        attribute "activeProgram", "number" // Required for Program Tiles.
-        attribute "colorName", "string" // Required for Color Shortcut Tiles.
+ //       attribute "activeProgram", "number" // Required for Program Tiles.
+ //       attribute "colorName", "string" // Required for Color Shortcut Tiles.
         attribute "lastReset", "string" // Last Time that energy reporting period was reset.
+        
+        // Additional Attributes to support box controller
+        attribute "autoOpen", "enum", ["on", "off"]
+        attribute "clearBox", "string"
+        attribute "allowDelivery", "string"
+        attribute "boxStatus", "string"
+        attribute "lidStatus", "string"
+        attribute "mode", "string"
+        attribute "lidOpened", "string"
+        attribute "parcelCount", "number"
+        attribute "powerState", "enum", ["on", "off"]
+        attribute "forceLock", "string"
+        attribute "forceReset", "string"
 
         // Custom Commands:
         command "test"
@@ -75,7 +89,7 @@ metadata {
             command "setLevel${c}"
         }
 
-        // Color shortcut commands:
+/*        // Color shortcut commands:
         command "black"
         command "white"
         command "red"
@@ -98,13 +112,31 @@ metadata {
         command "startDeepFade"
         command "startLiteFade"
         command "startPolice"
+ */       
+        // Additional Commands to support Box Controller
+        command "autoOn"
+        command "autoOff"
+        command "lock"
+        command "unlock"
+        command "allowDelivery"
+        command "clearBox"
+        command "setboxStatus"
+        command "setlidStatus"
+        command "setMode"
+        command "setlidOpened"
+        command "setparcelCount"
+        command "powerOn"
+        command "powerOff"
+        command "forceLock"
+        command "forceUnlock"
+        command "forceReset"
 
         fingerprint deviceId: "0x1101", inClusters: "0x27,0x72,0x86,0x26,0x60,0x70,0x32,0x31,0x85,0x33"
     }
 
     tiles (scale: 2){
         // MultiTile:
-        multiAttributeTile(name:"switch", type: "lighting", width: 6, height: 4, canChangeIcon: true){
+/*        multiAttributeTile(name:"switch", type: "lighting", width: 6, height: 4, canChangeIcon: true){
             tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
                 attributeState "on", label:'${name}', action:"switch.off", icon:"st.lights.philips.hue-single", backgroundColor:"#79B821", nextState:"turningOff"
                 attributeState "off", label:'${name}', action:"switch.on", icon:"st.lights.philips.hue-single", backgroundColor:"#ffffff", nextState:"turningOn"
@@ -121,15 +153,15 @@ metadata {
                 attributeState "power", label:'${currentValue} W'
             }
         }
-
+*/
         // Colour Channels:
-        standardTile("switchRed", "device.switchRed", height: 1, width: 1, inactiveLabel: false, canChangeIcon: false) {
+/*        standardTile("switchRed", "device.switchRed", height: 1, width: 1, inactiveLabel: false, canChangeIcon: false) {
             state "off", label:"R", action:"onRed", icon:"st.illuminance.illuminance.dark", backgroundColor:"#D8D8D8"
             state "on", label:"R", action:"offRed", icon:"st.illuminance.illuminance.bright", backgroundColor:"#FF0000"
         }
-        controlTile("levelRedSlider", "device.levelRed", "slider", range:"(0..100)", height: 1, width: 4, inactiveLabel: false) {
-            state "levelRed", action:"setLevelRed"
-        }
+ //       controlTile("levelRedSlider", "device.levelRed", "slider", range:"(0..100)", height: 1, width: 4, inactiveLabel: false) {
+ //           state "levelRed", action:"setLevelRed"
+ //       }
         valueTile("levelRedTile", "device.levelRed", decoration: "flat", height: 1, width: 1) {
             state "levelRed", label:'${currentValue}%'
         }
@@ -138,9 +170,9 @@ metadata {
             state "off", label:"G", action:"onGreen", icon:"st.illuminance.illuminance.dark", backgroundColor:"#D8D8D8"
             state "on", label:"G", action:"offGreen", icon:"st.illuminance.illuminance.bright", backgroundColor:"#00FF00"
         }
-        controlTile("levelGreenSlider", "device.levelGreen", "slider", range:"(0..100)", height: 1, width: 4, inactiveLabel: false) {
-            state "levelGreen", action:"setLevelGreen"
-        }
+ //       controlTile("levelGreenSlider", "device.levelGreen", "slider", range:"(0..100)", height: 1, width: 4, inactiveLabel: false) {
+ //           state "levelGreen", action:"setLevelGreen"
+ //       }
         valueTile("levelGreenTile", "device.levelGreen", decoration: "flat", height: 1, width: 1) {
             state "levelGreen", label:'${currentValue}%'
         }
@@ -149,9 +181,9 @@ metadata {
             state "off", label:"B", action:"onBlue", icon:"st.illuminance.illuminance.dark", backgroundColor:"#D8D8D8"
             state "on", label:"B", action:"offBlue", icon:"st.illuminance.illuminance.bright", backgroundColor:"#0000FF"
         }
-        controlTile("levelBlueSlider", "device.levelBlue", "slider", range:"(0..100)", height: 1, width: 4, inactiveLabel: false) {
-            state "levelBlue", action:"setLevelBlue"
-        }
+  //      controlTile("levelBlueSlider", "device.levelBlue", "slider", range:"(0..100)", height: 1, width: 4, inactiveLabel: false) {
+  //          state "levelBlue", action:"setLevelBlue"
+  //      }
         valueTile("levelBlueTile", "device.levelBlue", decoration: "flat", height: 1, width: 1) {
             state "levelBlue", label:'${currentValue}%'
         }
@@ -166,53 +198,53 @@ metadata {
         valueTile("levelWhiteTile", "device.levelWhite", decoration: "flat", height: 1, width: 1) {
             state "levelWhite", label:'${currentValue}%'
         }
-
+*/
         // OUT Channels:
-        standardTile("switchCh1", "device.switchCh1", height: 1, width: 1, inactiveLabel: false, canChangeIcon: false) {
-            state "off", label:"1", action:"onCh1", icon:"st.illuminance.illuminance.dark", backgroundColor:"#D8D8D8"
-            state "on", label:"1", action:"offCh1", icon:"st.illuminance.illuminance.bright", backgroundColor:"#79B821"
+        standardTile("switchCh1", "device.switchCh1", height: 1, width:2, inactiveLabel: false, canChangeIcon: false, decoration:"flat") {
+            state "off", label:"", /*action:"onCh1",*/ icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/redOff.png", backgroundColor:"#ffffff"
+            state "on", label:"", /*action:"offCh1",*/ icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/redOn.png", backgroundColor:"#ffffff"
         }
-        controlTile("levelCh1Slider", "device.levelCh1", "slider", range:"(0..100)", height: 1, width: 4, inactiveLabel: false) {
-            state "levelCh1", action:"setLevelCh1"
-        }
-        valueTile("levelCh1Tile", "device.levelCh1", decoration: "flat", height: 1, width: 1) {
-            state "levelCh1", label:'${currentValue}%'
-        }
+ //       controlTile("levelCh1Slider", "device.levelCh1", "slider", range:"(0..100)", height: 1, width: 4, inactiveLabel: false) {
+ //           state "levelCh1", action:"setLevelCh1"
+ //       }
+ //       valueTile("levelCh1Tile", "device.levelCh1", decoration: "flat", height: 1, width: 1) {
+ //           state "levelCh1", label:'${currentValue}%'
+ //       }
 
-        standardTile("switchCh2", "device.switchCh2", height: 1, width: 1, inactiveLabel: false, canChangeIcon: false) {
-            state "off", label:"2", action:"onCh2", icon:"st.illuminance.illuminance.dark", backgroundColor:"#D8D8D8"
-            state "on", label:"2", action:"offCh2", icon:"st.illuminance.illuminance.bright", backgroundColor:"#79B821"
+        standardTile("switchCh2", "device.switchCh2", height: 1, width: 2, inactiveLabel: false, canChangeIcon: false, decoration:"flat") {
+            state "off", label:"", /*action:"onCh2",*/ icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/greenOff.png", backgroundColor:"#ffffff"
+            state "on", label:"", /*action:"offCh2",*/ icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/greenOn.png", backgroundColor:"#ffffff"
         }
-        controlTile("levelCh2Slider", "device.levelCh2", "slider", range:"(0..100)", height: 1, width: 4, inactiveLabel: false) {
-            state "levelCh2", action:"setLevelCh2"
-        }
-        valueTile("levelCh2Tile", "device.levelCh2", decoration: "flat", height: 1, width: 1) {
-            state "levelCh2", label:'${currentValue}%'
-        }
+ //       controlTile("levelCh2Slider", "device.levelCh2", "slider", range:"(0..100)", height: 1, width: 4, inactiveLabel: false) {
+ //           state "levelCh2", action:"setLevelCh2"
+ //       }
+ //       valueTile("levelCh2Tile", "device.levelCh2", decoration: "flat", height: 1, width: 1) {
+ //           state "levelCh2", label:'${currentValue}%'
+ //       }
 
-        standardTile("switchCh3", "device.switchCh3", height: 1, width: 1, inactiveLabel: false, canChangeIcon: false) {
-            state "off", label:"3", action:"onCh3", icon:"st.illuminance.illuminance.dark", backgroundColor:"#D8D8D8"
-            state "on", label:"3", action:"offCh3", icon:"st.illuminance.illuminance.bright", backgroundColor:"#79B821"
+        standardTile("switchCh3", "device.switchCh3", height: 1, width: 2, inactiveLabel: false, canChangeIcon: false, decoration:"flat") {
+            state "off", label:"", /*action:"onCh3",*/ icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/unlocked.png", backgroundColor:"#ffffff"
+            state "on", label:"", /*action:"offCh3",*/ icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/locked.png", backgroundColor:"#ffffff"
         }
-        controlTile("levelCh3Slider", "device.levelCh3", "slider", range:"(0..100)", height: 1, width: 4, inactiveLabel: false) {
-            state "levelCh3", action:"setLevelCh3"
-        }
-        valueTile("levelCh3Tile", "device.levelCh3", decoration: "flat", height: 1, width: 1) {
-            state "levelCh3", label:'${currentValue}%'
-        }
+ //       controlTile("levelCh3Slider", "device.levelCh3", "slider", range:"(0..100)", height: 1, width: 4, inactiveLabel: false) {
+ //           state "levelCh3", action:"setLevelCh3"
+ //       }
+ //       valueTile("levelCh3Tile", "device.levelCh3", decoration: "flat", height: 1, width: 1) {
+ //           state "levelCh3", label:'${currentValue}%'
+ //       }
 
-        standardTile("switchCh4", "device.switchCh4", height: 1, width: 1, inactiveLabel: false, canChangeIcon: false) {
-            state "off", label:"4", action:"onCh4", icon:"st.illuminance.illuminance.dark", backgroundColor:"#D8D8D8"
-            state "on", label:"4", action:"offCh4", icon:"st.illuminance.illuminance.bright", backgroundColor:"#79B821"
+        standardTile("switchCh4", "device.switchCh4", height: 1, width: 2, inactiveLabel: false, canChangeIcon: false, decoration:"flat") {
+            state "off", label:"", /*action:"onCh4",*/ icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/buttonOn.png"
+            state "on", label:"", /*action:"offCh4",*/ icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/buttonOff.png"
         }
-        controlTile("levelCh4Slider", "device.levelCh4", "slider", range:"(0..100)", height: 1, width: 4, inactiveLabel: false) {
-            state "levelCh4", action:"setLevelCh4"
-        }
-        valueTile("levelCh4Tile", "device.levelCh4", decoration: "flat", height: 1, width: 1) {
-            state "levelCh4", label:'${currentValue}%'
-        }
+ //       controlTile("levelCh4Slider", "device.levelCh4", "slider", range:"(0..100)", height: 1, width: 4, inactiveLabel: false) {
+//            state "levelCh4", action:"setLevelCh4"
+//        }
+//        valueTile("levelCh4Tile", "device.levelCh4", decoration: "flat", height: 1, width: 1) {
+//            state "levelCh4", label:'${currentValue}%'
+//        }
 
-        // IN Channels (READ-ONLY) Labels:
+/*        // IN Channels (READ-ONLY) Labels:
         valueTile("switchCh1ReadOnly", "device.switchCh1", decoration: "flat", height: 1, width: 1) {
             state "default", label:'${currentValue}'
         }
@@ -234,13 +266,13 @@ metadata {
             state "default", label:'Channel #3 (Input):'
         }
 
-        valueTile("switchCh4ReadOnly", "device.switchCh4", decoration: "flat", height: 1, width: 1) {
-            state "default", label:'${currentValue}'
-        }
-        valueTile("ch4Label", "device.switchCh1", decoration: "flat", height: 1, width: 4) {
-            state "default", label:'Channel #4 (Input):'
-        }
-
+//        valueTile("switchCh4ReadOnly", "device.switchCh4", decoration: "flat", height: 1, width: 1) {
+//            state "default", label:'${currentValue}'
+ //       }
+//        valueTile("ch4Label", "device.switchCh1", decoration: "flat", height: 1, width: 4) {
+ //           state "default", label:'Channel #4 (Input):'
+//        }
+*/
         // Power
         valueTile("powerLabel", "device.power", decoration: "flat", height: 1, width: 2) {
             state "default", label:'Power:', action:"refresh.refresh", icon: "https://raw.githubusercontent.com/codersaur/SmartThings/master/icons/tile_2x1_refresh.png"
@@ -257,7 +289,7 @@ metadata {
             state "default", label:'${currentValue} kWh', icon: "https://raw.githubusercontent.com/codersaur/SmartThings/master/icons/tile_2x1_top_bottom_2.png"
         }
 
-        // Programs:
+ /*       // Programs:
         standardTile("fireplace", "device.activeProgram", height: 2, width: 2, decoration: "flat", inactiveLabel: false, canChangeIcon: false) {
             state "off", label:"Fireplace", action:"startFireplace", icon:"st.illuminance.illuminance.dark", backgroundColor:"#D8D8D8", defaultState: true
             state "6", label:"Fireplace", action:"stopProgram", icon:"st.illuminance.illuminance.bright", backgroundColor:"#FF0000"
@@ -316,20 +348,107 @@ metadata {
             state "off", label:"pink", action:"pink", icon:"st.illuminance.illuminance.dark", backgroundColor:"#D8D8D8", defaultState: true
             state "pink", label:"pink", action:"off", icon:"st.illuminance.illuminance.bright", backgroundColor:"#FF33CB"
         }
-
-        standardTile("refresh", "device.switch", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
+*/
+/*        standardTile("refresh", "device.switch", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
             state "default", label:"", action:"refresh.refresh", icon:"st.secondary.refresh"
         }
-        standardTile("test", "device.switch", decoration: "flat", width: 2, height: 2) {
+        standardTile("test", "device.switch",  width: 2, height: 1, decoration:"flat") {
             state "default", label:'Test', action:"test"
         }
+ */       
+        // Box Controller Tiles
+        standardTile("mode", "device.mode", width: 4, height: 2, decoration:"flat") {
+        	state "off", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/mainOff.png"
+            state "unlocked", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/mainUnlocked.png"
+            state "locked", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/mainLocked.png"
+            state "autoOpen", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/mainAuto.png"
+            state "accept", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/mainAccept.png"
+            state "clearing", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/mainClearing.png"
+            state "waiting", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/mainWaiting.png"
+            state "error", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/mainError.png"
+        }
+        
+        standardTile("summary", "device.mode", width: 1, height: 1, decoration:"flat") {
+        	state "off", label:"off", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/summaryOff.png", backgroundColor:"#FF0000"
+            state "unlocked", label:"unlocked", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/summaryUnlocked.png", backgroundColor:"#D8D8D8"
+            state "locked", label:"locked", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/summaryLocked.png", backgroundColor:"#008000"
+            state "autoOpen", label:"Automatic Accept", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/summaryAccept.png", backgroundColor:"#53a7c0"
+            state "accept", label:"Accepting Parcel", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/summaryAccept.png", backgroundColor:"#53a7c0"
+            state "clearing", label:"clearing", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/summaryClearing.png", backgroundColor:"#53a7c0"
+            state "waiting", label:"Waiting", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/summaryWaiting.png", backgroundColor:"#53a7c0"
+            state "error", label:"ERROR!!", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/summaryError.png", backgroundColor:"#FF0000"
+        }
+        
+        standardTile("autoOpen", "device.autoOpen",inactiveLabel:false, width: 2, height:1, decoration:"flat") {
+        	state "on", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/autoOn.png", action:"autoOff", defatultState: true
+            state "off", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/autoOff.png", action:"autoOn"
+        }
+        
+        standardTile("powerState", "device.powerState",inactiveLabel:false, width: 2, height:1, decoration:"flat") {
+        	state "on", label:"", action:"powerOff", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/boxDisabled.png", defatultState: true
+            state "off", label:"", action:"powerOn", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/boxEnabled.png"
+        }
+        
+        standardTile("allowDelivery", "device.allowDelivery",inactiveLabel:false, width: 2, height:1, decoration:"flat") {
+        	state "on", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/allowDelivery.png", action:"allowDelivery"
+        }
+        
+        standardTile("clearBox", "device.clearBox", inactiveLabel:false, width: 2, height:1, decoration:"flat") {
+        	state "on", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/emptyBox.png", action:"clearBox"
+        }
 
+        standardTile("forceReset", "device.forceReset", inactiveLabel:false, width: 2, height:1, decoration:"flat") {
+        	state "on", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/resetBox.png", action:"forceReset"
+        }
+
+        standardTile("forceLock", "device.forceLock", inactiveLabel:false, width: 2, height:1, decoration:"flat") {
+        	state "unlock", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/forceLock.png", action:"forceLock"
+        	state "lock", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/forceUnlock.png", action:"forceUnlock"
+        }
+
+        standardTile("boxStatus", "device.boxStatus", width:2, height: 1, inactiveLabel:true, decoration:"flat") {
+			state "empty", label:"", icon: "https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/isEmpty.png", defaultstate: true
+            state "full", label:"", icon: "https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/isFull.png"
+            state "clearing", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/isClearing.png"
+            }
+        
+        standardTile("lidStatus", "device.lidStatus", width:2, height:1, inactiveLabel:true, decoration:"flat") {
+            state "closed", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/closed.png", defaultState: true
+        	state "open", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/open.png"
+        }
+       
+        valueTile("lidOpened", "device.lidOpened", width:3, height:1) {
+            state "val", label:'${currentValue}', icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/lastopened.png"
+        }        
+        
+        valueTile("parcelCount", "device.parcelCount", width:1, height:1, inactiveLabel:true) {
+            state "val", label:'${currentValue}', icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/parcelcount.png"
+        } 
+        
         // Tile layouts:
         // ******** EDIT THIS SECTION to show the Tiles you want ********
-        main(["switch"])
+        main(["summary"])
+        
         details([
-            // The main multitile:
-            "switch",
+            // The Box Controller Status Tiles
+            "mode", "lidStatus", "boxStatus", 
+  
+  			// Box Controller Command Tiles
+            "allowDelivery", "clearBox", "autoOpen",   
+            "powerState", "forceLock", "forceReset",
+
+			// OUT Channels (Box Status Indicators):
+            "switchCh2", /* "levelCh2Slider", "levelCh2Tile", */
+			"switchCh1", /*"levelCh1Slider", "levelCh1Tile", */
+            "switchCh3", /* "levelCh3Slider", "levelCh3Tile", */
+            "switchCh4", /*"levelCh4Slider", "levelCh4Tile", */
+            
+            // Box Controller value tiles
+            "lidOpened", "parcelCount",
+            
+
+			// The main multitile:
+            //"switch",
 
             // RGBW Channels:
             //"switchRed","levelRedSlider", "levelRedTile",
@@ -337,20 +456,16 @@ metadata {
             //"switchBlue","levelBlueSlider", "levelBlueTile",
             //"switchWhite","levelWhiteSlider", "levelWhiteTile",
 
-            // OUT Channels:
-            "switchCh1","levelCh1Slider", "levelCh1Tile",
-            "switchCh2","levelCh2Slider", "levelCh2Tile",
-            "switchCh3","levelCh3Slider", "levelCh3Tile",
-            //"switchCh4","levelCh4Slider", "levelCh4Tile",
+  
 
             // INPUT Channels (read-only, label replaced slider control):
-            "switchCh1ReadOnly", "ch1Label", "levelCh1Tile",
+            //"switchCh1ReadOnly", "ch1Label", "levelCh1Tile",
             //"switchCh2ReadOnly", "ch2Label", "levelCh2Tile",
             //"switchCh3ReadOnly", "ch3Label", "levelCh3Tile",
             //"switchCh4ReadOnly", "ch4Label", "levelCh4Tile",
 
             // Energy and Power:
-            "powerLabel", "power", "refresh", "lastReset", "energy",
+            //"powerLabel", "power", "refresh", "lastReset", "energy",
 
             // Built-in Program Shortcuts (these only work if the channels are RGBW):
             //"fireplace", "storm", "deepFade","liteFade", "police",
@@ -361,7 +476,8 @@ metadata {
             //"magenta","pink","purple",
 
             // The Test Tile:
-            //"test"
+            //"test",
+            
             ])
     }
 
@@ -1516,7 +1632,7 @@ private zwaveEndPointEvent(sourceEndPoint, value) {
     else if ( (sourceEndPoint > 1) & (sourceEndPoint < 6) ) { // Physical channel #1..4
 
         // Update level:
-        log.info "${device.displayName}: Channel ${channel} level is ${percent}%."
+//        log.info "${device.displayName}: Channel ${channel} level is ${percent}%."
         sendEvent(name: "levelCh${channel}", value: percent, unit: "%")
         if (isColor) sendEvent(name: "level${mapping}", value: percent, unit: "%")
 
@@ -1575,7 +1691,7 @@ private zwaveEndPointEvent(sourceEndPoint, value) {
             sendEvent(name: "colorName", value: "${colorMap.name}")
             sendEvent(name: "color", value: "${colorMap}", displayed: false)
 
-            log.info "${device.displayName}: Color updated: ${colorMap}"
+ //           log.info "${device.displayName}: Color updated: ${colorMap}"
         }
     }
     else {
@@ -1598,7 +1714,7 @@ private zwaveEndPointEvent(sourceEndPoint, value) {
             if ( "on" == device.latestValue("switchCh${i}")) { newSwitch = "on" }
         }
     }
-    log.info "${device.displayName}: Switch is ${newSwitch}."
+//    log.info "${device.displayName}: Switch is ${newSwitch}."
     sendEvent(name: "switch", value: newSwitch)
 
     // Calculate aggregate level attribute:
@@ -1616,7 +1732,7 @@ private zwaveEndPointEvent(sourceEndPoint, value) {
             newLevel = Math.max(newLevel,device.latestValue("levelCh${i}").toInteger())
         }
     }
-    log.info "${device.displayName}: Level is ${newLevel}."
+ //   log.info "${device.displayName}: Level is ${newLevel}."
     sendEvent(name: "level", value: newLevel, unit: "%")
 
     // Should send the result of a CreateEvent...
@@ -1687,7 +1803,7 @@ private offChX(channel) {
  *
  **/
 private setLevelChX(level, channel) {
-    log.info "${device.displayName}: setLevelChX(): Setting channel ${channel} to level: ${level}."
+//    log.info "${device.displayName}: setLevelChX(): Setting channel ${channel} to level: ${level}."
 
     def cmds = []
     if (channel > 4 || channel < 1 ) {
@@ -2077,7 +2193,7 @@ def test() {
     //cmds << response(zwave.configurationV1.configurationGet(parameterNumber: 12))
     // There doesn't seem to be a way to request all Parameters in one go.
 
-    // Association Group Set/Get:
+    // Association Group Set/Get:f
     //cmds << response(zwave.associationV2.associationSet(groupingIdentifier:4, nodeId:[zwaveHubNodeId]).format()) // This adds the controller to Assoc. Group 4.
     //cmds << response(zwave.associationV2.associationGet(groupingIdentifier:4).format())
 
@@ -2087,4 +2203,99 @@ def test() {
     //cmds << response(zwave.firmwareUpdateMdV2.firmwareMdGet().format())
 
     return delayBetween(cmds,200)
+}
+
+
+def autoOn() {
+    sendEvent(name: "autoOpen", value:'on', isStateChange:"true")
+	log.trace "autoOn"
+}
+
+def autoOff() {
+    sendEvent(name: "autoOpen", value:'off', isStateChange:"true")
+	log.trace "autoOff"
+}
+
+def powerOn() {
+    sendEvent(name: "powerState", value:'on', isStateChange:"true")
+	log.trace "powerOn"
+}
+
+def powerOff() {
+    sendEvent(name: "powerState", value:'off', isStateChange:"true")
+	log.trace "powerOff"
+}
+
+def unlock() {
+	log.trace "unlock"
+    sendEvent(name:"lock", value:'unlocked', isStateChange:"true")
+    sendEvent(name:"forceLock", value:'unlock')
+    def cmds = []
+    (1..4).each { i -> if ( "Blue" == state.channelMapping[i] ) { cmds << offChX(i) } }
+    if (cmds.empty) log.warn "${device.displayName}: unlock(): There are no channels mapped to Blue!"
+    return cmds
+}
+
+def lock() {
+	log.trace "lock"
+    sendEvent(name: "lock", value:'locked', isStateChange:"true")
+    sendEvent(name: "forceLock", value:'lock')
+    def cmds = []
+    (1..4).each { i -> if ( "Blue" == state.channelMapping[i] ) { cmds << onChX(i) } }
+    if (cmds.empty) log.warn "${device.displayName}: lock(): There are no channels mapped to Blue!"
+    return cmds
+}
+
+def forceLock() {
+	log.trace "force lock"
+    sendEvent(name:"forceLock", value:'lock')
+}
+
+def forceUnlock() {
+	log.trace "force unlock"
+    sendEvent(name:"forceLock", value:'unlock')
+}
+def allowDelivery() {
+    sendEvent(name: "allowDelivery", value:'on', isStateChange:"true")
+	log.trace "allowDelivery"
+}
+
+def clearBox() {
+    sendEvent(name: "clearBox", value:'on', isStateChange:"true")
+	log.trace "clearBox"
+}
+
+def setboxStatus(status) {
+	log.trace "setboxStatus : "+ status
+    if (status=="full" || status=="unknown") {
+    	log.trace "setboxStatus full or clearing"
+    	sendEvent(name: "boxStatus", value:"full", displayed: "false")
+        } else if (status=="clearingfull" || status=="clearingempty") {
+        log.trace "setboxStatus clearing"
+        sendEvent(name:"boxStatus", value:"clearing", displayed:"false")
+        } else {
+        log.trace "setboxStatus empty"
+        sendEvent(name: "boxStatus", value:"empty", displayed: "false")
+        }
+    }
+    
+def setlidStatus(status) {
+	log.trace "setlidStatus: "+ status
+    sendEvent(name: "lidStatus", value: status, displayed: "false")
+    }
+   
+def setMode(mode) {
+	log.trace "mode: "+ mode
+    sendEvent (name: "mode", value: mode, displayed: "false")
+    sendEvent (name: "summary", value: mode, displayed: "false")
+}
+
+def setlidOpened(time) {
+	log.trace "lid opened : "+ time
+    sendEvent (name: "lidOpened", value: time, displayed: "false")
+}
+
+def setparcelCount(val) {
+	log.trace "parcel Count: "+ val
+    sendEvent (name: "parcelCount", value: val, displayed: "false")
 }

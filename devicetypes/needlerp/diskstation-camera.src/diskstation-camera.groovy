@@ -139,16 +139,16 @@ metadata {
         }
 
 		standardTile("take", "device.image", width: 2, height: 1, canChangeIcon: false, inactiveLabel: true, canChangeBackground: false, decoration:"flat") {
-			state "take", label: "", action: "Image Capture.take", icon: "https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/snapshot.png", backgroundColor: "#FFFFFF", nextState:"taking"
-			state "taking", label:"", action: "", icon: "https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/snapshot2.png", backgroundColor: "#ffffff"
-			state "image", label: "", action: "Image Capture.take", icon: "https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/snapshot.png", backgroundColor: "#FFFFFF", nextState:"taking"
+			state "take", label: "", action: "Image Capture.take", icon: "https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/snapshot.png", backgroundColor: "#FFFFFF", nextState:"taking"
+			state "taking", label:"", action: "", icon: "https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/snapshot2.png", backgroundColor: "#ffffff"
+			state "image", label: "", action: "Image Capture.take", icon: "https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/snapshot.png", backgroundColor: "#FFFFFF", nextState:"taking"
 		}
 
 		valueTile("vidInfo", "device.vidInfo", width:1, height: 1, inactiveLabel:true) {
 			state "val", label:'${currentValue}', action: "getplayStatus", icon: "", defaultstate: true
 		}
         valueTile("vidTime", "device.vidTime", width:2, height: 1, inactiveLabel:true) {
-			state "val", label:'${currentValue}', action: "getplayStatus", icon: "https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/tile_2x1_refresh.png", defaultstate: true
+			state "val", label:'${currentValue}', action: "getplayStatus", icon: "https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/tile_2x1_refresh.png", defaultstate: true
 		}
 
 		standardTile("up", "device.tiltSupported", width: 1, height: 1, canChangeIcon: false, canChangeBackground: false, decoration: "flat") {
@@ -224,13 +224,13 @@ metadata {
     	}
 
         standardTile("recordStatus", "device.recordStatus", width: 2, height: 1, canChangeIcon: false, canChangeBackground: false, decoration:"flat") {
-      		state "off", label: "", action: "recordon", icon: "https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/recordoff.png", backgroundColor: "#FFFFFF"
-    	  	state "on", label: "", action: "recordoff", icon: "https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/recordon.png",  backgroundColor: "#ffffff"
+      		state "off", label: "", action: "recordon", icon: "https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/recordoff.png", backgroundColor: "#FFFFFF"
+    	  	state "on", label: "", action: "recordoff", icon: "https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/recordon.png",  backgroundColor: "#ffffff"
 	    }
 
 		standardTile("motion", "device.motion", width: 2, height: 1, canChangeIcon: false, canChangeBackground: false, decoration:"flat") {
-			state("active", label:"", icon:"https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/motion.png", backgroundColor:"#ffffff")
-			state("inactive", label:"", icon:"https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/nomotion.png", backgroundColor:"#ffffff")
+			state("active", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/motion.png", backgroundColor:"#ffffff")
+			state("inactive", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/nomotion.png", backgroundColor:"#ffffff")
 		}
 
        standardTile("summary", "device.motion", width: 1, height: 1, canChangeIcon: false, canChangeBackground: true) {  //dummy for things list
@@ -239,8 +239,8 @@ metadata {
 		}
 
     	standardTile("auto", "device.autoTake", width: 2, height: 1, canChangeIcon: false, canChangeBackground: false, decoration:"flat") {
-			state "off", label: '', action: "autoTakeOn", icon: "https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/autooff.png", backgroundColor: "#ffffff"
-			state "on", label: '', action: "autoTakeOff", icon: "https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/autoon.png", backgroundColor: "#ffffff"
+			state "off", label: '', action: "autoTakeOn", icon: "https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/autooff.png", backgroundColor: "#ffffff"
+			state "on", label: '', action: "autoTakeOff", icon: "https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/autoon.png", backgroundColor: "#ffffff"
 		}
 
 //NeedlerP: Blank Tile to support layout
@@ -250,14 +250,14 @@ metadata {
 
 //NeedlerP: Additional functionality to enable / disable camera
         standardTile("status", "device.Status", width: 2, height: 1, canChangeIcon: false, canChangeBackground: false, decoration:"flat") {
-      		state "enabled", label: "", action: "disable", icon: "https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/cam_on.png", backgroundColor: "#FFFFFF"
-    	  	state "disabled", label: "", action: "enable", icon: "https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/cam_off.png",  backgroundColor: "#FF0000"
+      		state "enabled", label: "", action: "disable", icon: "https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/cam_on.png", backgroundColor: "#FFFFFF"
+    	  	state "disabled", label: "", action: "enable", icon: "https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/cam_off.png",  backgroundColor: "#FF0000"
 	    }
 
 //NeedlerP: Additional functionality to turn on/off recording playback in lieu of live view
         standardTile("playStatus", "device.playStatus", width: 2, height: 1, canChangeIcon: false, canChangeBackground: false, decoration:"flat") {
-      		state "live", label: "", action: "video", icon: "https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/livestream.png", backgroundColor: "#ffffff"
-    	  	state "video", label: "", action: "live", icon: "https://raw.githubusercontent.com/needlerp/Diskstation/master/icons/playvideo.png",  backgroundColor: "#ffffff"
+      		state "live", label: "", action: "video", icon: "https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/livestream.png", backgroundColor: "#ffffff"
+    	  	state "video", label: "", action: "live", icon: "https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/playvideo.png",  backgroundColor: "#ffffff"
 	    }
 
 
