@@ -454,7 +454,7 @@ def locationHandler(evt) {
             	log.trace bodyString
             	body = new groovy.json.JsonSlurper().parseText(bodyString)
             } else if (type?.contains("application/json")) {
-            	log.trace bodyString
+            	log.debug bodyString
                 body = new groovy.json.JsonSlurper().parseText(bodyString)
             } else if (type?.contains("text/html")) {
                 log.trace bodyString

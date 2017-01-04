@@ -17,7 +17,7 @@ definition(
     name: "Parcel Box Manager",
     namespace: "needlerp",
     author: "Paul Needler",
-    description: "SmartApp to automatically control a smart parcel box using a Fibaro RGBW controller (Red, Green LED, 12v lock and push-button) plus a Contact Sensor for the box lid.",
+    description: "SmartApp to automatically control a smart parcel box using a Fibaro RGBW controller (Red, Green LED, 12v lock and push-button)",
     category: "Convenience",
     iconUrl: "https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/App-MailboxMonitor.png",
     iconX2Url: "https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/App-MailboxMonitor@2x.png",
@@ -47,7 +47,8 @@ def selections() {
 		input("boxOpenTimeout", "number", title:"How long is box lid left open for, before error notification sent? (minutes)", defaultValue:"5")
 		input("openTime", "number", title:"How long after a manual box unlock will box re-lock if not opened? (minutes)", defaultValue:"2")
         input("boxClearanceTimeout", "number", title:"How long after clearance request for box emptying will box re-lock if not opened? (minutes)", defaultValue:"2")
-    }
+		input ("numFlashes", "number", title: "How many times should red light flash on after box button pressed (default 20 = 10 seconds)", defaultValue:"20", required: false)
+}
     section("Automatic Unlocking") {
     	input("doorBell", "capability.contactSensor", required:false, title:"Secondary Sensor", submitOnChange: true)
 		if (doorBell) {    
@@ -84,7 +85,6 @@ def updated() {
 }
 
 def initialize() {
-//	state.boxStatus = "unknown"
 	subscribe(boxController, "switchCh4.off", boxButtonhandler) // switchCh4 is the push button
     subscribe(boxController, "autoOpen", autoOpenhandler) // catch changes to auto-open status in app
     subscribe(boxController, "powerState", powerhandler) // catch changes to auto-open status in app
@@ -97,7 +97,6 @@ def initialize() {
     subscribe(emptySwitch, "switch.on", clearBoxhandler) // catch manual switch to clear box
 	// add subscriptions for Routines  - allowboxopen and clearbox
 	subscribe(location, "routineExecuted", routinehandler)
-
 
 // Schedule jobs here
 	schedule(unlockTime, morningUnlock)
@@ -120,6 +119,7 @@ def boxButtonhandler(evt) {  // box open request
     	
     } else { // box is full or unknown status
         // look at how we can change red light to flashing
+        flashRed()
         log.trace "autoOpen state: "+ state.autoOpen
         if (state.autoOpen == "on") { // auto-open after prescribed time
         	if (state.bellState == "pressed") { // doorbell was pressed within time limit
@@ -236,12 +236,17 @@ def powerhandler(evt) { // handle manual power on/off commands from devicehandle
         state.forceOff = false
         def action = morningUnlock(false)
         break
-    case("off"): // night off
-    	log.trace "power off"
+    case("disabled"): // force power off
+    	log.trace "Disabled"
         state.forceOff = true
         def action = nightBox(false)
         break
-    }
+    case("off"): //     
+    	log.trace "Off"
+        state.forceOff = false
+        def action = nightBox(false)
+        break
+}
 }
 
 def allowDeliveryhandler(evt) {
@@ -298,48 +303,41 @@ def clearBell() {
 
 def unlockBox()  {//unlocks box, irrespective of box contents
 	log.trace "unlockBox"
-//    unsubscribe()
     def actionL = boxController.unlock()
     def actionG = boxController.onGreen()
     def actionR = boxController.offRed()
-//    initialize()
 }
  
 def lockBox() {
-//	unsubscribe()
 	log.trace "lockBox"
     def actionL = boxController.lock()
     def actionR = boxController.onRed()
     def actionG = boxController.offGreen()
-//    initialize()
 }
 
 def nightBox(param) {
-	log.trace "nightBox"
-//    log.trace "nightBox boxStatus: "+ state.boxStatus
-//    log.trace "nightBox autoStatus: " + state.autoOpen
     unsubscribe()
-    log.trace "unsubscribe"
     if (param != false) {
             boxController.setLockStatus()
+    		def actionP = boxController.powerOff(false)
     }
+    if (state.forceOff == true) {
+       		log.trace "nightBox - Disable"
+    		def setMode = setMode("disabled")
+        } else {
+    		log.trace "nightBox - Off"
+	        def setMode = setMode("off")
+        }
     def offGreen = boxController.offGreen()
     def offRed = boxController.offRed()
     def lock = boxController.lock()
-    def setMode = setMode("off")
     def disable = disableApp("off") 
-	if (param != false) {
-    	def actionP = boxController.powerOff(false)
-    }
 	initialize()
-    log.trace "initialize"
 }
     
 def morningUnlock(param) {
-//	log.trace "morningUnlock"
     log.trace "morning Unlock boxStatus: " + state.boxStatus
     unsubscribe()
-    log.trace "unsubscribe"
     if (state.forceOff == false) { // box not manually turned on/off
     if (state.boxStatus == "empty") {
     	log.trace "box empty - unlocking"
@@ -358,20 +356,15 @@ def morningUnlock(param) {
     	log.trace "morningUnlock but box is disabled - doing nothing"
     }
     initialize()
-    log.trace "initialize"
 }
 
 def checkBoxStatus() {
-	log.trace "checkBoxStatus"
-    log.trace "lid Status: "+ state.boxLid
-    log.trace "boxState: " + state.boxStatus
+//	log.trace "checkBoxStatus"
+//    log.trace "lid Status: "+ state.boxLid
+//    log.trace "boxState: " + state.boxStatus
         if (state.boxLid == "open") { //box is still open
-        	log.trace "lid is still open - check for timeout"
-            log.trace "lidOpened: " + state.lidOpened
             def elapsed = now() - state.lidOpened // how long has it been open for
-            log.trace "elapsed: " + elapsed
             def threshold = (1000 * 60 * boxOpenTimeout)
-            log.trace "threshold:" + threshold
             if (elapsed >= threshold) {
             	sendNotification ("Parcel box has been left open")
                 log.trace "Notification sent: Lid Left Open"
@@ -394,20 +387,18 @@ def checkBoxStatus() {
                         def mode = setMode("locked")
                         break
                     case("clearingempty"): // box was empty, clearing button pressed but not opened
-                    	log.trace "checkBoxStatus: clearingempty"
+	                  	log.trace "checkBoxStatus: clearingempty"
 						def action = unlockBox()
 						def mode = setMode("unlocked")
                     	break
                     case ("full"):  // re-lock to make sure - manual allow delivery
                     	log.trace "checkBoxStatus: full"
-//                      state.boxStatus="full"
 						def action1 = setboxStatus("full")
 						def action = lockBox()
                         def mode = setMode("locked")
                         break
                     case ("empty"):
                     	log.trace "checkBoxStatus: empty"
-//                        state.boxStatus="empty"
 						setboxStatus("empty")
                     	def action = unlockBox()
                         def mode = setMode("unlocked")
@@ -434,20 +425,15 @@ def allowDelivery() { //button pressed, allow remote delivery
 
 def clearancerequest() { // button presssed to empty box
 	log.trace "clearancerequest"
-    log.trace "boxStatus: "+ state.boxStatus
     sendNotification "Box unlocked for emptying"
 	if (state.boxStatus == "full" || state.boxStatus == "clearingfull" || state.boxStatus == "unknown") {
-    	//state.boxStatus = "clearingfull"
-    	log.trace "Box is full"
         def boxStatus = setboxStatus("clearingfull")
-		log.trace "box clearance request submitted"
         def mode = setMode("clearing")
     	def action = unlockBox()
     	runIn (60*boxClearanceTimeout, checkBoxStatus)
     } else { // box is empty or clearingempty
     	def action = unlockBox()
         log.debug ("box clearance request but box already empty")
-//        state.boxStatus = "clearingempty"
 		def boxStatus = setboxStatus("clearingempty")
         runIn (60*boxClearanceTimeout, checkBoxStatus)     
     }
@@ -455,13 +441,13 @@ def clearancerequest() { // button presssed to empty box
 
 def setboxStatus(status) {  // set box status and update devicehandler
 	state.boxStatus = status
-    log.trace "setboxStatus: " + state.boxStatus
+//    log.trace "setboxStatus: " + state.boxStatus
     boxController.setboxStatus(status)
 }
 
 def setlidStatus(status) {  // set lid status and update devicehandler
 	state.boxLid = status
-    log.trace "boxLid: " + state.boxLid
+//    log.trace "boxLid: " + state.boxLid
     boxController.setlidStatus(status)
 }  
 
@@ -477,11 +463,57 @@ def setlidOpened(time) { //time lid last opened
 }
 
 def setparcelCount(val) { // send count of parcels
-	log.trace "parcelCount: "+ val
+//	log.trace "parcelCount: "+ val
     boxController.setparcelCount(val)
 }
 
 def disableApp(param) { //send disable command to DTH
-	log.trace "disable app: " + param
+//	log.trace "disable app: " + param
     boxController.disableApp(param)
     }
+    
+private flashRed() {
+	log.trace "start flashing red LED"
+	def doFlash = true
+	def onFor = onFor ?: 500
+	def offFor = offFor ?: 500
+	def numFlashes = numFlashes ?: 20
+    
+    log.debug "LAST ACTIVATED IS: ${state.lastActivated}"
+	if (state.lastActivated) {
+		def elapsed = now() - state.lastActivated
+		def sequenceTime = (numFlashes + 1) * (onFor + offFor)
+		doFlash = elapsed > sequenceTime
+		log.debug "DO FLASH: $doFlash, ELAPSED: $elapsed, LAST ACTIVATED: ${state.lastActivated}"
+	}
+    
+    if (doFlash) {
+		log.debug "FLASHING $numFlashes times"
+		state.lastActivated = now()
+		log.debug "LAST ACTIVATED SET TO: ${state.lastActivated}"
+		def initialActionOn = switches.collect{it.currentSwitch != "on"} // not sure this matter for onRed
+		def delay = 0L
+		numFlashes.times {
+			log.trace "Switch on after  $delay msec"
+//			switches.eachWithIndex {s, i ->
+//				if (initialActionOn[i]) {
+					boxController.offRed(delay: delay)
+//				}
+//				else {
+//					s.off(delay:delay)
+//				}
+//			}
+			delay += onFor
+			log.trace "Switch off after $delay msec"
+//			switches.eachWithIndex {s, i ->
+//				if (initialActionOn[i]) {
+					boxController.onRed(delay: delay)
+//				}
+//				else {
+//					s.on(delay:delay)
+//				}
+//			}
+			delay += offFor
+		}
+	}
+}
