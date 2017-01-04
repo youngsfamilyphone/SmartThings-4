@@ -229,15 +229,18 @@ def autoOpenhandler(evt) {
     } 
     
 def powerhandler(evt) { // handle manual power on/off commands from devicehandler
-	log.trace "powerhandler"
-    if (evt.value=="on") { // power on request
+	log.trace "powerhandler: " + evt.value
+    switch (evt.value) {
+    case ("on"):// power on request
     	log.trace "power on"
         state.forceOff = false
         def action = morningUnlock(false)
-    } else {
+        break
+    case("off"): // night off
     	log.trace "power off"
         state.forceOff = true
         def action = nightBox(false)
+        break
     }
 }
 
@@ -295,45 +298,67 @@ def clearBell() {
 
 def unlockBox()  {//unlocks box, irrespective of box contents
 	log.trace "unlockBox"
+//    unsubscribe()
     def actionL = boxController.unlock()
     def actionG = boxController.onGreen()
     def actionR = boxController.offRed()
+//    initialize()
 }
  
 def lockBox() {
+//	unsubscribe()
 	log.trace "lockBox"
     def actionL = boxController.lock()
     def actionR = boxController.onRed()
     def actionG = boxController.offGreen()
+//    initialize()
 }
 
 def nightBox(param) {
 	log.trace "nightBox"
-    log.trace "nightBox boxStatus: "+ state.boxStatus
-    def actionG = boxController.offGreen()
-    def actionR = boxController.offRed()
-    def actionL = boxController.lock()
-    def actionM = setMode("off")
+//    log.trace "nightBox boxStatus: "+ state.boxStatus
+//    log.trace "nightBox autoStatus: " + state.autoOpen
+    unsubscribe()
+    log.trace "unsubscribe"
     if (param != false) {
-		def actionP = boxController.powerOff()
+            boxController.setLockStatus()
     }
+    def offGreen = boxController.offGreen()
+    def offRed = boxController.offRed()
+    def lock = boxController.lock()
+    def setMode = setMode("off")
+    def disable = disableApp("off") 
+	if (param != false) {
+    	def actionP = boxController.powerOff(false)
+    }
+	initialize()
+    log.trace "initialize"
 }
     
 def morningUnlock(param) {
-	log.trace "morningUnlock"
-    log.trace "morning boxStatus:" + state.boxStatus
-    if (state.forceOff != true) { // if box manually turned off, do nothing
+//	log.trace "morningUnlock"
+    log.trace "morning Unlock boxStatus: " + state.boxStatus
+    unsubscribe()
+    log.trace "unsubscribe"
+    if (state.forceOff == false) { // box not manually turned on/off
     if (state.boxStatus == "empty") {
+    	log.trace "box empty - unlocking"
     	def action = unlockBox()
         def action1= setMode("unlocked")
-    } else {
+    	} else {
+    	log.trace "box full - locking"
         def action = lockBox()
         def action1 = setMode("locked")
-    }
-    if (param != false) {
+        }
+    def enable = disableApp("on") // enable icons
+	if (param != false) {
     	def action = boxController.powerOn()
+    	}
+	} else {
+    	log.trace "morningUnlock but box is disabled - doing nothing"
     }
-    }
+    initialize()
+    log.trace "initialize"
 }
 
 def checkBoxStatus() {
@@ -455,3 +480,8 @@ def setparcelCount(val) { // send count of parcels
 	log.trace "parcelCount: "+ val
     boxController.setparcelCount(val)
 }
+
+def disableApp(param) { //send disable command to DTH
+	log.trace "disable app: " + param
+    boxController.disableApp(param)
+    }
