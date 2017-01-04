@@ -713,7 +713,7 @@ def getVideoDetails() {
     sendEvent(name:"vidInfo", value:"getting data...", displayed:false)
     sendEvent(name:"vidTime", value:"getting data...", displayed:false)
     def hubAction = queueDiskstationCommand_Child("SYNO.SurveillanceStation.Event", "List", "cameraIds=${cameraId}&orderMethod=1&limit=1", 5)
-    log.trace "getVideoDetails hubaAction: " + hubAction
+    log.trace "getVideoDetails hubAction: " + hubAction
     return hubAction
 //    postAction("/getInHomeURL")
 //	log.trace "video eventId: "+ parent.eventId
