@@ -132,6 +132,8 @@ metadata {
         command "forceUnlock"
         command "forceReset"
         command "setBellStatus"
+        command "disableApp"
+        command "setLockStatus"
 
         fingerprint deviceId: "0x1101", inClusters: "0x27,0x72,0x86,0x26,0x60,0x70,0x32,0x31,0x85,0x33"
     }
@@ -384,23 +386,28 @@ metadata {
         standardTile("autoOpen", "device.autoOpen",inactiveLabel:false, width: 2, height:1, decoration:"flat") {
         	state "on", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/autoOn.png", action:"autoOff", defatultState: true
             state "off", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/autoOff.png", action:"autoOn"
+            state "disabled", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/autoOn_dis.png"
         }
         
         standardTile("powerState", "device.powerState",inactiveLabel:false, width: 2, height:1, decoration:"flat") {
         	state "on", label:"", action:"powerOff", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/boxDisabled.png", defatultState: true
             state "off", label:"", action:"powerOn", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/boxEnabled.png"
+            state "disabled", label:"disabled", action:"powerOn", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/boxEnabled.png"
         }
         
         standardTile("allowDelivery", "device.allowDelivery",inactiveLabel:false, width: 2, height:1, decoration:"flat") {
         	state "on", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/allowDelivery.png", action:"allowDelivery"
+            state "disabled", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/allowDelivery_dis.png"
         }
         
         standardTile("clearBox", "device.clearBox", inactiveLabel:false, width: 2, height:1, decoration:"flat") {
         	state "on", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/emptyBox.png", action:"clearBox"
+            state "disabled", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/emptyBox_dis.png"
         }
 
         standardTile("forceReset", "device.forceReset", inactiveLabel:false, width: 2, height:1, decoration:"flat") {
         	state "on", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/resetBox.png", action:"forceReset"
+        	state "disabled", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/resetBox_dis.png"           
         }
 
         standardTile("forceLock", "device.forceLock", inactiveLabel:false, width: 2, height:1, decoration:"flat") {
@@ -408,6 +415,8 @@ metadata {
         	state "lock", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/forceUnlock.png", action:"forceUnlock"
         	state "forceunlock", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/forceLock.png", action:"forceLock"
         	state "forcelock", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/forceUnlock.png", action:"forceUnlock"
+            state "disabled", label:"", icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/forceLock_dis.png"
+            
 }
 
         standardTile("boxStatus", "device.boxStatus", width:2, height: 1, inactiveLabel:true, decoration:"flat") {
@@ -2225,13 +2234,17 @@ def autoOff() {
 }
 
 def powerOn() {
-    sendEvent(name: "powerState", value:'on', isStateChange:"true")
+    sendEvent(name: "powerState", value:'on')
 	log.trace "powerOn"
 }
 
-def powerOff() {
-    sendEvent(name: "powerState", value:'off', isStateChange:"true")
+def powerOff(param) {
+	if (param != false) {
+    	setLockStatus()
+    }
+    sendEvent(name: "powerState", value:'off')
 	log.trace "powerOff"
+    
 }
 
 def unlock() {
@@ -2247,6 +2260,7 @@ def unlock() {
 
 def lock() {
 	log.trace "lock"
+//    state.lockStatus = device.currentState("forceLock").value
     sendEvent(name: "lock", value:'locked', isStateChange:"true")
     state.forceLock = false
     sendEvent(name: "forceLock", value:'lock')
@@ -2282,9 +2296,9 @@ def forceReset() {
 }
 
 def setboxStatus(status) {
-	log.trace "setboxStatus : "+ status
+//	log.trace "setboxStatus : "+ status
     if (status=="full" || status=="unknown") {
-    	log.trace "setboxStatus full or clearing"
+    	log.trace "setboxStatus full or unknown"
     	sendEvent(name: "boxStatus", value:"full", displayed: "false")
         } else if (status=="clearingfull" || status=="clearingempty") {
         log.trace "setboxStatus clearing"
@@ -2303,7 +2317,7 @@ def setlidStatus(status) {
 def setMode(mode) {
 	log.trace "mode: "+ mode
     sendEvent (name: "mode", value: mode, displayed: "false")
-    sendEvent (name: "summary", value: mode, displayed: "false")
+    sendEvent (name: "summary", value: mode, displayed: "false")  
 }
 
 def setlidOpened(time) {
@@ -2320,3 +2334,39 @@ def setBellStatus(val) {
 	log.trace "bell status: "+ val
     sendEvent (name:"bellStatus", value: val, displayed:"false")
     }
+    
+def disableApp(param) {
+	log.trace "disableApp: "+param
+    switch(param) {
+    case ("on"):
+		sendEvent(name:"allowDelivery", value:"on")
+        sendEvent(name:"clearBox", value:"on")
+        sendEvent(name:"forceReset", value:"on")
+        log.trace "autoOpen: "+state.autoOpen
+        if (state.autoOpen !="disabled") {
+        	sendEvent(name:"autoOpen", value:state.autoOpen)
+        } else {
+        	sendEvent(name:"autoOpen", value:"off")
+        }
+        log.trace "forceLock: "+ state.lockStatus
+        if (state.lockStatus !="disabled") {
+        	sendEvent(name:"forceLock", value:state.lockStatus)
+        } else {
+        	sendEvent(name:"forceLock", value:"unlock")
+        }
+        break
+	case ("off"):
+    	sendEvent(name:"allowDelivery", value:"disabled")
+        sendEvent(name:"clearBox", value:"disabled")
+        sendEvent(name:"forceReset", value:"disabled")
+        state.autoOpen = device.currentState("autoOpen").value
+        sendEvent(name:"autoOpen", value:"disabled")
+		log.trace "forceLock: "+ state.lockStatus
+        sendEvent(name:"forceLock", value:"disabled")
+        break
+	}
+}
+def setLockStatus() {
+	state.lockStatus = device.currentState("forceLock").value
+	log.trace "powerOff lockStatus: "+state.lockStatus
+}
