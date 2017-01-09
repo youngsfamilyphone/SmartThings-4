@@ -32,8 +32,8 @@ metadata {
     tiles(scale: 2) {
     	multiAttributeTile(name:"FGK", type:"lighting", width:6, height:4) {//with generic type secondary control text is not displayed in Android app
         	tileAttribute("device.switch", key:"PRIMARY_CONTROL") {
-            	attributeState("on", label:"open", icon:"st.switch.on", backgroundColor:"#ffa81e")
-                attributeState("off", label:"closed", icon:"st.switch.off", backgroundColor:"#79b821")
+            	attributeState("on", label:"active", icon:"st.Home.home30", backgroundColor:"#ffa81e")
+                attributeState("off", label:"", icon:"st.Home.home30", backgroundColor:"#79b821")
             }
             
             tileAttribute("device.tamper", key:"SECONDARY_CONTROL") {
@@ -239,8 +239,8 @@ def configure() {
     cmds += zwave.associationV2.associationSet(groupingIdentifier:1, nodeId: [zwaveHubNodeId])
     cmds += zwave.wakeUpV2.wakeUpNoMoreInformation()
 // Added script here to reverse setting of switch from normally open to normally closed
-//	cmds += zwave.configurationV2.configurationGet(parameterNumber: 2) //.format()
-//    cmds += zwave.configurationV1.configurationSet(scaledConfigurationValue: 1, parameterNumber: 2, size: 1)
+	cmds += zwave.configurationV2.configurationGet(parameterNumber: 2) //.format()
+    cmds += zwave.configurationV1.configurationSet(scaledConfigurationValue: 1, parameterNumber: 2, size: 1)
 	cmds += zwave.configurationV2.configurationGet(parameterNumber: 2) //.format()
 //	cmds += zwave.switchMultilevelV3.switchMultilevelGet()
     

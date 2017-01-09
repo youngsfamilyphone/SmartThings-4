@@ -94,7 +94,7 @@ metadata {
 	}
 
 	tiles {
-		standardTile("camera", "device.image", width: 1, height: 1, canChangeIcon: false, inactiveLabel: true, canChangeBackground: true) {
+		standardTile("camera", "device.image", width: 1, height: 1, canChangeIcon: false) {
 			state "default", label: "", action: "", icon: "st.camera.dropcam-centered", backgroundColor: "#FFFFFF"
 		}
         
@@ -138,7 +138,7 @@ metadata {
  */          
         }
 
-		standardTile("take", "device.image", width: 2, height: 1, canChangeIcon: false, inactiveLabel: true, canChangeBackground: false, decoration:"flat") {
+		standardTile("take", "device.image", width: 2, height: 1, canChangeIcon: false, inactiveLabel: true, decoration:"flat") {
 			state "take", label: "", action: "Image Capture.take", icon: "https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/snapshot.png", backgroundColor: "#FFFFFF", nextState:"taking"
 			state "taking", label:"", action: "", icon: "https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/snapshot2.png", backgroundColor: "#ffffff"
 			state "image", label: "", action: "Image Capture.take", icon: "https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/snapshot.png", backgroundColor: "#FFFFFF", nextState:"taking"
@@ -166,12 +166,12 @@ metadata {
             state "no", label: "", action: "", icon: ""
     	}
 
-		standardTile("right", "device.panSupported", width: 1, height: 1, canChangeIcon: false, canChangeBackground: false, decoration: "flat") {
+		standardTile("right", "device.panSupported", width: 1, height: 1, decoration: "flat") {
       		state "yes", label: "right", action: "right", icon: ""
             state "no", label: "", action: "", icon: ""
     	}
 
-        standardTile("zoomIn", "device.zoomSupported", width: 1, height: 1, canChangeIcon: false, canChangeBackground: false, decoration: "flat") {
+        standardTile("zoomIn", "device.zoomSupported", width: 1, height: 1, decoration: "flat") {
       		state "yes", label: "zoom in", action: "zoomIn", icon: "st.custom.buttons.add-icon"
             state "no", label: "", action: "", icon: ""
     	}

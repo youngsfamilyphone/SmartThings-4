@@ -134,6 +134,7 @@ metadata {
         command "setBellStatus"
         command "disableApp"
         command "setLockStatus"
+        command "flashRed"
 
         fingerprint deviceId: "0x1101", inClusters: "0x27,0x72,0x86,0x26,0x60,0x70,0x32,0x31,0x85,0x33"
     }
@@ -1442,6 +1443,47 @@ def offWhite() {
     if (cmds.empty) log.warn "${device.displayName}: offWhite(): There are no channels mapped to White!"
     return cmds
 }
+
+def flashRed(val) {
+	log.trace "flashRed lights $val times"
+    def cmds = []
+    int count = 0
+    (1..4).each { i -> if ( "Red" == state.channelMapping[i] ) { 
+    	log.trace "Red channel is $i"
+		1.upto(val) {
+        	log.trace "flash $count!"
+   			cmds << offChX(i)
+        	cmds << onChX(i)
+            count ++
+         	}  
+        cmds << offChX(i) //end up with red light off - pending unlock    
+ 		}
+	}
+ 	if (cmds.empty) log.warn "${device.displayName}: flashRed(): There are no channels mapped to Red!"
+    log.trace "completing flashRed"
+    return delayBetween(cmds,500)
+
+}
+
+
+
+/*
+def doFlash() {
+    def cmds = []
+    int count = 0
+    (1..4).each { i -> if ( "Red" == state.channelMapping[i] ) { 
+    	1.upto while (count<2) {
+            log.trace "flash $count"
+    		cmds << offChX(i)
+        	cmds << onChX(i)
+            count ++
+            }
+        } 
+       }
+	if (cmds.empty) log.warn "${device.displayName}: flashRed(): There are no channels mapped to Red!"
+    return delayBetween(cmds,1000)
+}
+*/	
 
 /**
  *  setLevel*() - Set level of an individual channel.
