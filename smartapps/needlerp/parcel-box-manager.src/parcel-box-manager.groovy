@@ -47,7 +47,7 @@ def selections() {
 		input("boxOpenTimeout", "number", title:"How long is box lid left open for, before error notification sent? (minutes)", defaultValue:"5")
 		input("openTime", "number", title:"How long after a manual box unlock will box re-lock if not opened? (minutes)", defaultValue:"2")
         input("boxClearanceTimeout", "number", title:"How long after clearance request for box emptying will box re-lock if not opened? (minutes)", defaultValue:"2")
-		input ("numFlashes", "number", title: "How many times should red light flash on after box button pressed (default 20 = 10 seconds)", defaultValue:"20", required: false)
+		input("numFlashes", "number", title: "How many times should red light flash on after box button pressed (default 20 = 10 seconds)", defaultValue:"20", required: false)
 }
     section("Automatic Unlocking") {
     	input("doorBell", "capability.contactSensor", required:false, title:"Secondary Sensor", submitOnChange: true)
@@ -85,7 +85,7 @@ def updated() {
 }
 
 def initialize() {
-	subscribe(boxController, "switchCh4.off", boxButtonhandler) // switchCh4 is the push button
+	subscribe(boxController, "switchCh4.on", boxButtonhandler) // switchCh4 is the push button
     subscribe(boxController, "autoOpen", autoOpenhandler) // catch changes to auto-open status in app
     subscribe(boxController, "powerState", powerhandler) // catch changes to auto-open status in app
     subscribe(boxController, "allowDelivery", allowDeliveryhandler) // catch when devicehandler allow delivery button pressed
@@ -105,7 +105,7 @@ def initialize() {
 
 // Event handlers
 def boxButtonhandler(evt) {  // box open request
-//	log.trace "boxButtonhandler"
+	log.trace "boxButtonhandler"
     log.trace "boxStatus: "+ state.boxStatus
     if (state.forceOff != true) { // box is turned off within app - do nothing
     if (state.boxStatus == "empty") {  // box is empty, so it can be unlocked if during working hours
@@ -119,23 +119,25 @@ def boxButtonhandler(evt) {  // box open request
     	
     } else { // box is full or unknown status
         // look at how we can change red light to flashing
-        flashRed()
-        log.trace "autoOpen state: "+ state.autoOpen
+        log.trace "autoOpen state: " + state.autoOpen
+        def flash = flashRed()
         if (state.autoOpen == "on") { // auto-open after prescribed time
         	if (state.bellState == "pressed") { // doorbell was pressed within time limit
             	def action = setMode("autoOpen")
                 runIn(autoOpenCounter, unlockBox)
                 sendNotification("Auto Delivery Activated")
+                log.info "Auto delivery activated"
                 runIn(60 * autoOpenTimeout, checkBoxStatus)
             } else {
             	sendNotification("Delivery Requested (doorbell fail)")
+                log.info "Delivery Requested (doorbell fail)"
                 def mode = setMode("waiting")
             }
         } else {
-        log.trace "auto-open not true, so wait for manual open"
+        log.info "Auto-open off, so wait for manual open"
         sendNotification ("Delivery Requested (manual)")
         def action = setMode("waiting")
-		// do nothing 
+		runIn(60 * boxClearanceTimeout, checkBoxStatus) 
         }
         
     }
@@ -147,12 +149,12 @@ def boxSensorhandler(evt) {
         if (evt.value == "open") { //box is open
 //        state.boxLid = "open"
         def actionl = setlidStatus("open")
-        log.trace "box opened"
+        log.info "box lid opened"
         def action = setlidOpened(now())
         //state.lidOpened = now()
         runIn(60 * boxOpenTimeout, checkBoxStatus)
     } else { // box was closed
-        log.trace "box closed"
+        log.info "box lid closed"
 //        state.boxLid = "closed"
         def actionl = setlidStatus("closed")
         switch (state.boxStatus) {
@@ -192,7 +194,7 @@ def boxSensorhandler(evt) {
             }
             break
         case("clearingempty"): // box just emptied
-        	log.trace "box cleared"
+        	log.trace "box cleared when empty"
             sendNotification("box emptied")
             state.parcelCount = 0
             def parcelcount = setparcelCount(state.parcelCount)
@@ -323,7 +325,7 @@ def nightBox(param) {
     }
     if (state.forceOff == true) {
        		log.trace "nightBox - Disable"
-    		def setMode = setMode("disabled")
+            def setMode = setMode("disabled")
         } else {
     		log.trace "nightBox - Off"
 	        def setMode = setMode("off")
@@ -332,7 +334,8 @@ def nightBox(param) {
     def offRed = boxController.offRed()
     def lock = boxController.lock()
     def disable = disableApp("off") 
-	initialize()
+	//initialize() don't re-initialise as the box is off - wait until morning so it ignored box opening for maintenance etc.
+        subscribe(boxController, "powerState", powerhandler)  // listen only for power on command
 }
     
 def morningUnlock(param) {
@@ -360,8 +363,8 @@ def morningUnlock(param) {
 
 def checkBoxStatus() {
 //	log.trace "checkBoxStatus"
-//    log.trace "lid Status: "+ state.boxLid
-//    log.trace "boxState: " + state.boxStatus
+    log.trace "lid Status: "+ state.boxLid
+    log.trace "boxState: " + state.boxStatus
         if (state.boxLid == "open") { //box is still open
             def elapsed = now() - state.lidOpened // how long has it been open for
             def threshold = (1000 * 60 * boxOpenTimeout)
@@ -472,48 +475,8 @@ def disableApp(param) { //send disable command to DTH
     boxController.disableApp(param)
     }
     
-private flashRed() {
-	log.trace "start flashing red LED"
-	def doFlash = true
-	def onFor = onFor ?: 500
-	def offFor = offFor ?: 500
-	def numFlashes = numFlashes ?: 20
-    
-    log.debug "LAST ACTIVATED IS: ${state.lastActivated}"
-	if (state.lastActivated) {
-		def elapsed = now() - state.lastActivated
-		def sequenceTime = (numFlashes + 1) * (onFor + offFor)
-		doFlash = elapsed > sequenceTime
-		log.debug "DO FLASH: $doFlash, ELAPSED: $elapsed, LAST ACTIVATED: ${state.lastActivated}"
-	}
-    
-    if (doFlash) {
-		log.debug "FLASHING $numFlashes times"
-		state.lastActivated = now()
-		log.debug "LAST ACTIVATED SET TO: ${state.lastActivated}"
-		def initialActionOn = switches.collect{it.currentSwitch != "on"} // not sure this matter for onRed
-		def delay = 0L
-		numFlashes.times {
-			log.trace "Switch on after  $delay msec"
-//			switches.eachWithIndex {s, i ->
-//				if (initialActionOn[i]) {
-					boxController.offRed(delay: delay)
-//				}
-//				else {
-//					s.off(delay:delay)
-//				}
-//			}
-			delay += onFor
-			log.trace "Switch off after $delay msec"
-//			switches.eachWithIndex {s, i ->
-//				if (initialActionOn[i]) {
-					boxController.onRed(delay: delay)
-//				}
-//				else {
-//					s.on(delay:delay)
-//				}
-//			}
-			delay += offFor
-		}
-	}
+def flashRed() {
+	def numFlashes = numFlashes ?: 6
+	log.trace "start flashing red LED $numFlashes times"
+	boxController.flashRed(numFlashes)
 }
