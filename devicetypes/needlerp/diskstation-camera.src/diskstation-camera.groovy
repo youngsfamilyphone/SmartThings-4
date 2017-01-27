@@ -45,6 +45,7 @@ metadata {
         attribute "blank", "string" //blank to enable custom layout
         attribute "vidInfo", "string"
         attribute "vidTime", "string"
+        attribute "streamName", "string"
 
         command "left"
     	command "right"
@@ -121,6 +122,7 @@ metadata {
 				attributeState("unavailable", label: "Unavailable", icon: "st.camera.dlink-indoor", backgroundColor: "#F22000")
 			}
 
+           
 			tileAttribute("device.startLive", key: "START_LIVE") {
 				attributeState("live", action: "start", defaultState: true)
 
@@ -136,6 +138,7 @@ metadata {
 				attributeState("3", label: "l360p", action: "setProfileSDL", defaultState: true)
 			}
  */          
+ 
         }
 
 		standardTile("take", "device.image", width: 2, height: 1, canChangeIcon: false, inactiveLabel: true, decoration:"flat") {
@@ -421,8 +424,14 @@ def getOutHomeURL() {
     }
 }
 
+
 def putImageInS3(map) {
-	def s3ObjectContent
+	try {
+    storeTemporaryImage(map.key, getPictureName())  
+ 	} catch(Exception e) {  
+		log.error e  
+    }  
+/*	def s3ObjectContent
 
 	try {
 		def imageBytes = getS3Object(map.bucket, map.key + ".jpg")
@@ -444,6 +453,7 @@ def putImageInS3(map) {
 		//explicitly close the stream
 		if (s3ObjectContent) { s3ObjectContent.close() }
 	}
+*/
 }
 
 def getCameraID() {
@@ -696,7 +706,11 @@ def disable() {
 def video() {
 	log.trace "Set Video"
     sendEvent(name:"playStatus", value:"video", displayed: false)   
-	def hubAction = getVideoDetails()
+    sendEvent(name:"switch", value:"on", isStateChange:true) 
+	sendEvent(name:"errorMessage", value:"Press to view Video", isStateChange:true)
+    sendEvent(name:"camera", value:"on", isStateChange:true)
+    def start = start()
+	return getVideoDetails()
    }
     
 def live() {
@@ -704,6 +718,10 @@ def live() {
     sendEvent(name:"vidInfo", value:"Live", displayed:false)
     sendEvent(name:"vidTime", value:"Live", displayed:false)
     sendEvent(name:"playStatus", value:"live", displayed:false)
+    sendEvent(name:"switch", value:"on", isStateChange:true) 
+	sendEvent(name:"errorMessage", value:"Press to view Live Stream", isStateChange:true)
+    sendEvent(name:"camera", value:"on", isStateChange:true)
+    def start = start()
 }
 
 def getVideoDetails() {

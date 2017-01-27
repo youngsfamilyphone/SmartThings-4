@@ -228,8 +228,8 @@ metadata {
  //       }
 
         standardTile("switchCh3", "device.switchCh3", height: 1, width: 2, inactiveLabel: false, canChangeIcon: false, decoration:"flat") {
-            state "off", label:"", /*action:"onCh3",*/ icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/unlocked.png", backgroundColor:"#ffffff"
-            state "on", label:"", /*action:"offCh3",*/ icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/locked.png", backgroundColor:"#ffffff"
+            state "on", label:"", /*action:"onCh3",*/ icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/unlocked.png", backgroundColor:"#ffffff"
+            state "off", label:"", /*action:"offCh3",*/ icon:"https://raw.githubusercontent.com/needlerp/SmartThings/master/icons/locked.png", backgroundColor:"#ffffff"
         }
  //       controlTile("levelCh3Slider", "device.levelCh3", "slider", range:"(0..100)", height: 1, width: 4, inactiveLabel: false) {
  //           state "levelCh3", action:"setLevelCh3"
@@ -2300,7 +2300,7 @@ def unlock() {
     state.forceLock = false
     sendEvent(name:"forceLock", value:'unlock')
     def cmds = []
-    (1..4).each { i -> if ( "Blue" == state.channelMapping[i] ) { cmds << offChX(i) } }
+    (1..4).each { i -> if ( "Blue" == state.channelMapping[i] ) { cmds << onChX(i) } }
     if (cmds.empty) log.warn "${device.displayName}: unlock(): There are no channels mapped to Blue!"
     return cmds
 }
@@ -2312,7 +2312,7 @@ def lock() {
     state.forceLock = false
     sendEvent(name: "forceLock", value:'lock')
     def cmds = []
-    (1..4).each { i -> if ( "Blue" == state.channelMapping[i] ) { cmds << onChX(i) } }
+    (1..4).each { i -> if ( "Blue" == state.channelMapping[i] ) { cmds << offChX(i) } }
     if (cmds.empty) log.warn "${device.displayName}: lock(): There are no channels mapped to Blue!"
     return cmds
 }
