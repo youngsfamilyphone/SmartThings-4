@@ -632,8 +632,9 @@ def locationHandler(evt) {
             if (commandInfo != null) {
                 switch (commandType) {
                     case getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetSnapshot"):
-                        if (parsedEvent.bucket && parsedEvent.key){
-                        	log.trace "saving image to device"
+ //                       if (parsedEvent.bucket && parsedEvent.key){
+   						if (parsedEvent.key){
+                           	log.trace "saving image to device"
                             commandInfo?.child?.putImageInS3(parsedEvent)
                         }
                         return finalizeChildCommand(commandInfo)
@@ -1372,3 +1373,7 @@ private getHostAddress() {
 	return "${userip}:${userport}"
 }
 
+private getPictureName() {
+	def pictureUuid = java.util.UUID.randomUUID().toString().replaceAll('-', '')
+	return device.deviceNetworkId.replaceAll(" ", "_") + "_$pictureUuid" + ".jpg"
+}

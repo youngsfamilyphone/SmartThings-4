@@ -32,11 +32,9 @@ def selections() {
 	dynamicPage(name: "selections", ttile: "Provide your details", install: true, uninstall: true) {
 	section("Box Controller") {
 		input("boxController", "capability.lock", required:true, title:"Select Fibaro RGBW as main controller")
-	}
-    section("Box Lid Sensor") {
     	input("boxSensor", "capability.contactSensor", required:true, title:"Select box lid contact sensor")
     }
-    section("Switch to empty box") {
+    section("Manual box emptying") {
     	input("emptySwitch", "capability.switch", required:false, title:"Select switch to empty box manually (optional)")
     }    
     section ("Operational Hours") {
@@ -48,15 +46,24 @@ def selections() {
 		input("openTime", "number", title:"How long after a manual box unlock will box re-lock if not opened? (minutes)", defaultValue:"2")
         input("boxClearanceTimeout", "number", title:"How long after clearance request for box emptying will box re-lock if not opened? (minutes)", defaultValue:"2")
 		input("numFlashes", "number", title: "How many times should red light flash on after box button pressed (default 20 = 10 seconds)", defaultValue:"20", required: false)
-}
+		}
     section("Automatic Unlocking") {
     	input("doorBell", "capability.contactSensor", required:false, title:"Secondary Sensor", submitOnChange: true)
 		if (doorBell) {    
         input("autoWaitTime", "number", title:"How long after $doorBell is pressed can box button be pushed to auto-unlock (minutes)", defaultValue:"3")
 		input("autoOpenCounter", "number", title:"How many seconds after box button pressed is box unlocked?" , defaultValue:"8")
         input("autoOpenTimeout", "number", title:"How long after automatic unlock will box re-lock if not opened (minutes)", defaultValue:"2")
-        }
-        }
+        	}
+            }
+	section("Voice Announcements") {
+		input("voiceEnabled", "bool", title:"Enable voice announcements?", defaultValue:false, submitOnChange: true)
+        if (voiceEnabled) {
+		input("sonos", "capability.musicPlayer", title: "Through these speakers:", required: false ,multiple:true)
+//        input("resumePlaying", "bool", title: "Resume currently playing music after notification", required: false, defaultValue: true)
+		input("volume", "number", title: "Temporarily change volume", description: "0-100%", required: false)
+		}
+        }        
+
         
     // get the available routines / actions
     def actions = location.helloHome?.getPhrases()*.label
@@ -130,12 +137,14 @@ def boxButtonhandler(evt) {  // box open request
                 runIn(60 * autoOpenTimeout, checkBoxStatus)
             } else {
             	sendNotification("Delivery Requested (doorbell fail)")
+                playTTS("Someone is trying to make a parcel delivery")
                 log.info "Delivery Requested (doorbell fail)"
                 def mode = setMode("waiting")
             }
         } else {
         log.info "Auto-open off, so wait for manual open"
         sendNotification ("Delivery Requested (manual)")
+        playTTS("Someone is trying to make a parcel delivery")
         def action = setMode("waiting")
 		runIn(60 * boxClearanceTimeout, checkBoxStatus) 
         }
@@ -161,6 +170,7 @@ def boxSensorhandler(evt) {
         case("empty"):  // box was empty, so assume now full
         	log.trace "box empty"
             sendNotification("Parcel delivered")
+            playTTS("A parcel has been delivered")
             state.parcelCount = state.parcelCount + 1
             def parcelcount = setparcelCount(state.parcelCount)
             def action = lockBox()
@@ -170,7 +180,8 @@ def boxSensorhandler(evt) {
 			break
         case("full"): // box already full, so it's a repeat parcel drop
         	log.trace "box full"
-            sendNotification("additional parcel delivered")
+            sendNotification("Additional parcel delivered")
+            playTTS("A parcel has been delivered")            
             state.parcelCount = state.parcelCount + 1
             def parcelcount = setparcelCount(state.parcelCount)            
         	def action = lockBox()
@@ -180,30 +191,38 @@ def boxSensorhandler(evt) {
 			break
         case("clearingfull"): // box just emptied
         	log.trace "box cleared"
-            sendNotification("box emptied")
+            sendNotification("Box emptied")
             state.parcelCount = 0
             def parcelcount = setparcelCount(state.parcelCount)
 //            state.boxStatus = "empty"
 			def actionS = setboxStatus("empty")
            	def between = timeOfDayIsBetween(unlockTime, lockTime, new Date(), location.timeZone)
             if (between) {
-            	def action = unlockBox()
+/* code change - even if empty, re-lock box to reduce load on lock
+				def action = unlockBox()
 				def actionM = setMode("unlocked")
+                */
+                def action = lockBox()
+                def actionM = setMode("locked")
             } else {
             	def action = nightBox()
             }
             break
         case("clearingempty"): // box just emptied
         	log.trace "box cleared when empty"
-            sendNotification("box emptied")
+            sendNotification("Box emptied")
             state.parcelCount = 0
             def parcelcount = setparcelCount(state.parcelCount)
 //            state.boxStatus = "empty"
 			def actionS = setboxStatus("empty")
            	def between = timeOfDayIsBetween(unlockTime, lockTime, new Date(), location.timeZone)
             if (between) {
-            	def action = unlockBox()
-			    def actionM = setMode("unlocked")
+/* code change - even if empty, re-lock box to reduce load on lock
+				def action = unlockBox()
+				def actionM = setMode("unlocked")
+                */
+                def action = lockBox()
+                def actionM = setMode("locked")
             } else {
             	def action = nightBox()
             }
@@ -289,8 +308,12 @@ def forceLockhandler(evt) {
 
 def forceResethandler(evt) {
 	log.trace "forceResethandler"
-    def action = unlockBox()
-    def mode = setMode("unlocked")
+/* code change - even if empty, re-lock box to reduce load on lock
+				def action = unlockBox()
+				def actionM = setMode("unlocked")
+                */
+	def action = lockBox()
+	def actionM = setMode("locked")
 	state.parcelCount = 0
     def parcelcount = setparcelCount(state.parcelCount)
     def boxStatus = setboxStatus("empty")  
@@ -343,11 +366,13 @@ def morningUnlock(param) {
     unsubscribe()
     if (state.forceOff == false) { // box not manually turned on/off
     if (state.boxStatus == "empty") {
-    	log.trace "box empty - unlocking"
+ /* lock the box irrespective of contents
+ 		log.trace "box empty - unlocking"
     	def action = unlockBox()
         def action1= setMode("unlocked")
     	} else {
     	log.trace "box full - locking"
+        */
         def action = lockBox()
         def action1 = setMode("locked")
         }
@@ -371,6 +396,8 @@ def checkBoxStatus() {
             if (elapsed >= threshold) {
             	sendNotification ("Parcel box has been left open")
                 log.trace "Notification sent: Lid Left Open"
+            	playTTS("The parcel box lid has been left open") 
+                def action1 = lockBox() // lock the box, just in case there's a problem with the lid sensor
                 def action = setMode("error")
             	} else {
                 runIn (60 / 2 * boxOpenTimeout, checkBoxStatus) // time threshold not yet reached - schedule to check again shortly    
@@ -382,7 +409,7 @@ def checkBoxStatus() {
                 def between = timeOfDayIsBetween(unlockTime, lockTime, new Date(), location.timeZone)
                 if (between) {
                 	switch (state.boxStatus) {
-                	case("clearingfull"): // box was previously full sore-lock as box not opened
+                	case("clearingfull"): // box was previously full so re-lock as box not opened
                     	log.trace "checkBoxStatus: clearingfull"
 //                    	state.boxStatus = "full"
 						def action1 = setboxStatus("full")
@@ -391,8 +418,12 @@ def checkBoxStatus() {
                         break
                     case("clearingempty"): // box was empty, clearing button pressed but not opened
 	                  	log.trace "checkBoxStatus: clearingempty"
-						def action = unlockBox()
-						def mode = setMode("unlocked")
+						/* code change - even if empty, re-lock box to reduce load on lock
+				def action = unlockBox()
+				def actionM = setMode("unlocked")
+                */
+                		def action = lockBox()
+                		def actionM = setMode("locked")
                     	break
                     case ("full"):  // re-lock to make sure - manual allow delivery
                     	log.trace "checkBoxStatus: full"
@@ -403,8 +434,12 @@ def checkBoxStatus() {
                     case ("empty"):
                     	log.trace "checkBoxStatus: empty"
 						setboxStatus("empty")
-                    	def action = unlockBox()
-                        def mode = setMode("unlocked")
+                    	/* code change - even if empty, re-lock box to reduce load on lock
+				def action = unlockBox()
+				def actionM = setMode("unlocked")
+                */
+                		def action = lockBox()
+                		def actionM = setMode("locked")
                         break
                     default:
                     	log.trace "checkBoxStatus: unknown status"
@@ -429,6 +464,7 @@ def allowDelivery() { //button pressed, allow remote delivery
 def clearancerequest() { // button presssed to empty box
 	log.trace "clearancerequest"
     sendNotification "Box unlocked for emptying"
+    playTTS("Parcel box unlocked for emptying")
 	if (state.boxStatus == "full" || state.boxStatus == "clearingfull" || state.boxStatus == "unknown") {
         def boxStatus = setboxStatus("clearingfull")
         def mode = setMode("clearing")
@@ -480,3 +516,16 @@ def flashRed() {
 	log.trace "start flashing red LED $numFlashes times"
 	boxController.flashRed(numFlashes)
 }
+
+private playTTS(message) {
+			if (voiceEnabled) {
+			log.trace "Playing Message: "+message
+        	message = message.length() >100 ? message[0..90] :message
+        	def speech = [uri: "x-rincon-mp3radio://translate.google.com/translate_tts?ie=UTF-8&tl=en&client=tw-ob&q=" + URLEncoder.encode(message, "UTF-8").replaceAll(/\+/,'%20') +"&sf=//s3.amazonaws.com/smartapp-", duration: "${5 + Math.max(Math.round(message.length()/12),2)}"]
+            log.trace "speech.uri: "+ speech.uri
+			sonos.playTrackAndResume(speech.uri, speech.duration, volume)
+            }
+}
+
+
+
