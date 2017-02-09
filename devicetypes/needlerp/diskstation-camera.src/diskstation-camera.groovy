@@ -112,7 +112,7 @@ metadata {
 			}
 
 			tileAttribute("device.errorMessage", key: "CAMERA_ERROR_MESSAGE") {
-				attributeState("errorMessage", label: "", value: "", defaultState: true)
+				attributeState("errorMessage", label: "", value: "")
 			}
 
 			tileAttribute("device.camera", key: "PRIMARY_CONTROL") {
@@ -345,7 +345,7 @@ def start() {
             def hubStreamOutHome = getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "LiveStream", "cameraId=${cameraId}", 2, "OutHome")
     		def hubStreamInHome = getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "LiveStream", "cameraId=${cameraId}", 2, "InHome")
 			log.trace hubStreamInHome
-//    		log.trace hubStreamOutHome
+    		log.trace hubStreamOutHome
     
     def dataLiveVideo = [
 		OutHomeURL  : "https://" + hubStreamOutHome,
@@ -414,13 +414,13 @@ def getOutHomeURL() {
     def cameraId = getCameraID()
     def eventId = device.currentState("vidInfo")?.value
     if (device.currentState("playStatus")?.value == "video") {
-    def OutHomeURL = "http://" + getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "EventStream", "eventId=${eventId}", 2, "OutHome")
+    def OutHomeURL = "https://" + getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "EventStream", "eventId=${eventId}", 2, "OutHome")
 //    log.trace "getOutHomeURL - video: " + OutHomeURL
     [OutHomeURL: OutHomeURL]
     } else {
-    def OutHomeURL = "http://" + getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "LiveStream", "cameraId=${cameraId}", 2, "OutHome")
+    def OutHomeURL = "https://" + getStreamURL_Child("SYNO.SurveillanceStation.Streaming", "LiveStream", "cameraId=${cameraId}", 2, "OutHome")
 //    log.trace "getOutHomeURL - live: " + OutHomeURL    
-    [InHomeURL: InHomeURL]
+    [OutHomeURL: OutHomeURL]
     }
 }
 
@@ -708,7 +708,7 @@ def video() {
     sendEvent(name:"playStatus", value:"video", displayed: false)   
     sendEvent(name:"switch", value:"on", isStateChange:true) 
 	sendEvent(name:"errorMessage", value:"Press to view Video", isStateChange:true)
-    sendEvent(name:"camera", value:"on", isStateChange:true)
+//    sendEvent(name:"camera", value:"on", isStateChange:true)
     def start = start()
 	return getVideoDetails()
    }
@@ -720,7 +720,7 @@ def live() {
     sendEvent(name:"playStatus", value:"live", displayed:false)
     sendEvent(name:"switch", value:"on", isStateChange:true) 
 	sendEvent(name:"errorMessage", value:"Press to view Live Stream", isStateChange:true)
-    sendEvent(name:"camera", value:"on", isStateChange:true)
+//    sendEvent(name:"camera", value:"on", isStateChange:true)
     def start = start()
 }
 
@@ -746,7 +746,7 @@ def getplayStatus() {
 	    sendEvent(name:"vidTime", value:"getting data...", displayed:false)
 		def hubAction = queueDiskstationCommand_Child("SYNO.SurveillanceStation.Event", "List", "cameraIds=${cameraId}&orderMethod=1&limit=1", 5)
 //    	log.trace "getVideoDetails hubaAction: " + hubAction
-		updateHandler()
+//		updateHandler()
     	return hubAction
         } else {
         sendEvent(name:"vidInfo", value:"Live", displayed: false)
@@ -829,7 +829,7 @@ def initChild(Map capabilities)
 	sendEvent(name: "recordStatus", value: "off") //Needlerp
 	sendEvent(name: "refreshState", value: "none")
     if (device.currentState("status")?.value == null) { //Needlerp
-    	sendEvent(name: "status", value: "off")
+    	sendEvent(name: "status", value: "on")
     }
     if (device.currentState("playStatus")?.value == "Live") { //Needlerp
 		sendEvent(name: "playStatus", value: "Live")
@@ -844,7 +844,7 @@ def queueDiskstationCommand_Child(String api, String command, String params, int
     def commandData = parent.createCommandData(api, command, params, version)
 //    log.trace "CommandData:" + commandData
 	def hubAction = parent.createHubAction(commandData)
-//    log.trace "queDiskstationCommand_Child hubAction: "+ hubActin
+//    log.trace "queueDiskstationCommand_Child hubAction: "+ hubAction
     hubAction
 //    log.trace "hubAction: " + hubAction
 }
