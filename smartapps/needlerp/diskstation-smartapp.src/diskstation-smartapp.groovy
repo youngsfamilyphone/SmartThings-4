@@ -359,7 +359,7 @@ def getFirstChildCommand(commandType) {
 			}
         }
     }
-    log.trace commandInfo
+    log.trace "getFirstChildCommand commandInfo:" + commandInfo
     return commandInfo
 }
 
@@ -370,8 +370,10 @@ def getFirstChildCommand(commandType) {
 
 // return a getUniqueCommand() equivalent value
 def determineCommandFromResponse(parsedEvent, bodyString, body) {
-	if (parsedEvent.bucket && parsedEvent.key) {
+//	if (parsedEvent.bucket && parsedEvent.key) {
+	if (parsedEvent.key) {
     	return getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetSnapshot")
+        log.trace "determineCommandFromResponse: GetSnapshot"
     }
 
     if (body) {
@@ -425,7 +427,7 @@ return true
 // The event argument doesn't include any way to link it back to a particular hubAction request.
 def locationHandler(evt) {
 
-	//log.trace "String value: " + evt.stringValue
+	log.trace "String value: " + evt.stringValue
 
 	def description = evt.description
 	def hub = evt?.hubId
@@ -492,6 +494,7 @@ def locationHandler(evt) {
 
         // gathered our incoming command data, see what we have
         def commandType = determineCommandFromResponse(parsedEvent, bodyString, body)
+        log.trace "commandType: " + commandType
 
    		// check if this is a command for the master
         if ((state.commandList.size() > 0) && (body != null) && (commandType != ""))
@@ -627,11 +630,14 @@ def locationHandler(evt) {
             
             //  PAUL NEEDERL EVENTID SCRIPT ENDS HERE
             // guess who wants this type (commandType)
+            
             def commandInfo = getFirstChildCommand(commandType)
+            log.trace " GetSnapshot commandInfo: "+commandInfo
 
             if (commandInfo != null) {
                 switch (commandType) {
                     case getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetSnapshot"):
+                    	log.trace "Get ready to save image"
  //                       if (parsedEvent.bucket && parsedEvent.key){
    						if (parsedEvent.key){
                            	log.trace "saving image to device"
@@ -685,6 +691,7 @@ def locationHandler(evt) {
         	def commandInfo = getFirstChildCommand(getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetSnapshot"))
             if (commandInfo) {
                 log.trace "take image command returned an error"
+                log.trace "commandInfo:" + commandInfo
                 if ((state.lastErrorResend == null) || ((now() - state.lastErrorResend) > 15000)) {
                 	log.trace "resending to get real error message"
                 	state.lastErrorResend = now()
@@ -772,8 +779,8 @@ private def parseEventMessage(String description) {
 				event.bucket = valueString
 			}
 		}
-        else if (part.startsWith('key:')) {
-			part -= "key:"
+        else if (part.startsWith('tempImageKey:')) {
+			part -= "tempImageKey:"
 			def valueString = part.trim()
 			if (valueString) {
 				event.key = valueString
