@@ -120,6 +120,8 @@ def boxButtonhandler(evt) {  // box open request
         if (between) {
         	log.trace "box unlocked when empty"
             def action = unlockBox()
+            def mode = setMode("unlocked")
+            runIn(60 * autoOpenTimeout, checkBoxStatus)
     	} else { // button pressed, but it's night-time so do nothing
         log.debug "box button pressed out of hours" // do nothing
         }
@@ -230,6 +232,7 @@ def boxSensorhandler(evt) {
         default:
         	log.debug "box closed, unknown status"
         	def action = setboxStatus("unknown")
+	        def lidstatus = setlidStatus("closed")        
 //			state.boxStatus = "unknown"
     	}
     }
@@ -237,10 +240,26 @@ def boxSensorhandler(evt) {
 
 def doorBellhandler(evt) {
 //log.trace "doorBellhandler"
-if (evt.value=="open") // Bell was pushed
+if (evt.value=="open") { // Bell was pushed
 	state.bellState = "pressed"
     def bellStatus = boxController.setBellStatus("on")
     runIn(60 * autoWaitTime, clearBell)
+        // If Box is empty, unlock as though they've already pressed the button
+        if (state.forceOff != true) { // box is turned off within app - do nothing
+		    if (state.boxStatus == "empty") {  // box is empty, so it can be unlocked if during working hours
+    			def between = timeOfDayIsBetween(unlockTime, lockTime, new Date(), location.timeZone)
+        		if (between) {
+        			def action = allowDelivery()
+    			} else { // button pressed, but it's night-time so do nothing
+        			log.debug "doorbell pressed out of hours" // do nothing
+        		}	
+    		}
+          }
+	} else { // bell has cleared
+    def bellStatus = boxController.setBellStatus("off")    
+    state.bellState = null
+}
+
 }
 
 def autoOpenhandler(evt) {
@@ -317,6 +336,8 @@ def forceResethandler(evt) {
 	state.parcelCount = 0
     def parcelcount = setparcelCount(state.parcelCount)
     def boxStatus = setboxStatus("empty")  
+    def actionl = setlidStatus("closed")    
+    def clearBell = clearBell()
 }
 
 //Helper methods
@@ -358,7 +379,8 @@ def nightBox(param) {
     def lock = boxController.lock()
     def disable = disableApp("off") 
 	//initialize() don't re-initialise as the box is off - wait until morning so it ignored box opening for maintenance etc.
-        subscribe(boxController, "powerState", powerhandler)  // listen only for power on command
+    subscribe(boxController, "powerState", powerhandler)  // listen only for power on command
+    subscribe(emptySwitch, "switch.on", clearBoxhandler) // catch manual switch to clear box    
 }
     
 def morningUnlock(param) {
