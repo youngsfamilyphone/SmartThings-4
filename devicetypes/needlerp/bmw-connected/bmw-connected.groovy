@@ -1,12 +1,12 @@
 /**
- *  Copyright 2016 Paul Needler (needlerp)
+ *  Copyright 2018 Paul Needler (needlerp)
  *
  *  SmartThings Device Handler to interface with BMW Connected web interface as Child Device
  *
  *  Source: https://github.com/needlerp/SmartThings/tree/master/devicetypes/needlerp/bmw-connected
  *
  *
- *  Your use of this Device Handler is entirely at your own risk. They are neither officially provided nor sanctioned.
+ *  Your use of this Device Handler is entirely at your own risk. It is neither officially provided nor sanctioned.
  *
  *  License:
  *   Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
