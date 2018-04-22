@@ -105,7 +105,7 @@ def motionSetup()
 
 def diskstationDiscovery()
 {
-    log.trace "subscribe to location"
+    log.trace "DiskStation Discovery.  subscribe to location events for lan discovery"
     subscribe(location, null, locationHandler, [filterEvents:false])
     state.subscribe = true
 
@@ -130,14 +130,19 @@ def diskstationDiscovery()
             input "username", "text", title:"username", defaultValue:""
             input "password", "password", title:"password", defaultValue:""
         }
+        section("Enter how many devices are connected to your network (Used to determine how long to try scanning for cameras before timming out):") {
+            input "networkDeviceCount", "text", title:"Network Device Count", defaultValue:"20"
+        }
     }
 }
 
 def cameraDiscovery()
 {
     if(!state.subscribe) {
-        log.trace "subscribe to location"
+        log.trace "Camera Discovery (not subscribed) subscribe to location events for camera discovery"
         subscribe(location, null, locationHandler, [filterEvents:false])
+        // for camera urn type see http://upnp.org/specs/ha/UPnP-ha-DigitalSecurityCamera-v1-Device.pdf
+        //subscribe(location, "lan discovery urn:schemas-upnp-org:device:DigitalSecurityCamera:1", cameraLocationHandler);
         state.subscribe = true
     }
 
@@ -159,7 +164,9 @@ def cameraDiscovery()
 
 	// check for timeout error
     state.refreshCount = state.refreshCount+1
-    if (state.refreshCount > 20) {state.error = "Network Timeout. Check your ip address and port. You must access a local IP address and a non-https port."}
+    log.debug "Discovery Scan Attempt.  networkDeviceCount ${networkDeviceCount}"
+    def maxRefreshCount = networkDeviceCount.toInteger() // this is a random number; increase from 20, if you have lots of devices on your network, or you have many cameras to query
+    if (state.refreshCount > maxRefreshCount) {state.error = "Network Timeout. Check your ip address and port. You must access a local IP address and a non-https port."}
 
 	state.refreshCountMotion = 0
 
@@ -172,7 +179,11 @@ def cameraDiscovery()
         	// we're waiting for the list to be created
             return dynamicPage(name:"cameraDiscovery", title:"Diskstation", nextPage:"", refreshInterval:4, uninstall: true) {
                 section("Connecting to ${userip}:${userport}") {
-                	paragraph "This can take a minute. Please wait..."
+                
+                	// SSDP is provided by HubAction then verfication is made by UPNP or REST
+                    // see http://docs.smartthings.com/en/latest/cloud-and-lan-connected-device-types-developers-guide/building-lan-connected-device-types/building-the-service-manager.html
+                	// and http://docs.smartthings.com/en/latest/ref-docs/hubaction-ref.html#
+                    paragraph "Scanning the LAN for cameras using SSDP and UPNP.  This can take several minutes depending on your network topology. Please wait...  It this fails, try increasing the Network Device Count value and try again."
                 }
             }
         } else {
@@ -221,7 +232,7 @@ def getDSInfo() {
     // get APIs
     queueDiskstationCommand("SYNO.API.Info", "Query", "query=SYNO.API.Auth", 1)
     queueDiskstationCommand("SYNO.API.Info", "Query", "query=SYNO.SurveillanceStation.Streaming", 1)
-    queueDiskstationCommand("SYNO.API.Info", "Query", "query=SYNO.SurveillanceStation.VideoStreaming", 1)
+    queueDiskstationCommand("SYNO.API.Info", "Query", "query=SYNO.SurveillanceStation.VideoStream", 1)
     queueDiskstationCommand("SYNO.API.Info", "Query", "query=SYNO.SurveillanceStation.Camera", 1)
     queueDiskstationCommand("SYNO.API.Info", "Query", "query=SYNO.SurveillanceStation.PTZ", 1)
     queueDiskstationCommand("SYNO.API.Info", "Query", "query=SYNO.SurveillanceStation.ExternalRecording", 1)
@@ -232,11 +243,17 @@ def getDSInfo() {
     executeLoginCommand()
 
     // get cameras
-    queueDiskstationCommand("SYNO.SurveillanceStation.Camera", "List", "additional=device", 1)
+	getCameras();
 }
 
 def executeLoginCommand() {
 	queueDiskstationCommand("SYNO.API.Auth", "Login", "account=${URLEncoder.encode(username, "UTF-8")}&passwd=${URLEncoder.encode(password, "UTF-8")}&session=SurveillanceStation&format=sid", 2)
+}
+
+def getCameras() {
+	log.debug "executing getting cameras"
+	queueDiskstationCommand("SYNO.SurveillanceStation.Camera", "List", "additional=device", 1)
+    log.debug "finished execution fo get cameras"
 }
 
 def getCameraCapabilities() {
@@ -252,7 +269,7 @@ def getCameraCapabilities() {
 
 // takes in object from state.SSCameraList
 def updateCameraInfo(camera) {
-	log.trace "Updating camera info for Camera ID " + camera.id
+	log.info "Updating camera info for Camera ID " + camera.id
     def vendor = camera.additional.device.vendor.replaceAll(" ", "%20")
     def model = camera.additional.device.model.replaceAll(" ", "%20")
     if ((model == "Define") && (vendor = "User")) {
@@ -372,8 +389,8 @@ def getFirstChildCommand(commandType) {
 def determineCommandFromResponse(parsedEvent, bodyString, body) {
 //	if (parsedEvent.bucket && parsedEvent.key) {
 	if (parsedEvent.key) {
-    	return getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetSnapshot")
         log.trace "determineCommandFromResponse: GetSnapshot"
+    	return getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetSnapshot")
     }
 
     if (body) {
@@ -381,7 +398,10 @@ def determineCommandFromResponse(parsedEvent, bodyString, body) {
         	// has data
         	if (body.data.sid != null) { return getUniqueCommand("SYNO.API.Auth", "Login") }
             if (bodyString.contains("maxVersion")) { return getUniqueCommand("SYNO.API.Info", "Query") }
-            if (body.data.cameras != null) { return getUniqueCommand("SYNO.SurveillanceStation.Camera", "List") }
+            if (body.data.cameras != null) {
+            	log.info "query camera list"
+            	return getUniqueCommand("SYNO.SurveillanceStation.Camera", "List") 
+            }
             if (body.data.events !=null) { return getUniqueCommand("SYNO.SurveillanceStation.Event", "List") }
             //if (body.data.ptzPan != null) { return getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetCapability")}
             if (body.data.ptzPan != null) { return getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetCapabilityByCamId")}
@@ -413,21 +433,31 @@ def doesCommandReturnData(uniqueCommand) {
         case getUniqueCommand("SYNO.SurveillanceStation.PTZ", "ListPreset"):
         case getUniqueCommand("SYNO.SurveillanceStation.PTZ", "ListPatrol"):
         case getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetSnapshot"):
-  //      case getUniqueCommand("SYNO.SurveillanceStation.VideoStreaming", "Stream"):  //PMN
-   //     case getUniqueCommand("SYNO.SurveillanceStation.Streaming", "EventStream"):  //PMN
+        //case getUniqueCommand("SYNO.SurveillanceStation.VideoStream", "Stream"):  //PMN
+        //case getUniqueCommand("SYNO.SurveillanceStation.Streaming", "EventStream"):  //PMN
         case getUniqueCommand("SYNO.SurveillanceStation.Event", "List"): //PMN
-return true
+		return true
     }
 
     return false
 }
+
+// not needed if we already know the IP addresses since synology surveillance station returns them
+/*void ssdpDiscover() {
+	sendHubCommand(new physicalgraph.device.HubAction("lan discovery urn:schemas-upnp-org:device:DigitalSecurityCamera:1", physicalgraph.device.Protocol.LAN))
+}
+
+def cameraLocationHandler(evt) {
+	log.info "found camera... ${evt}"
+}*/
 
 // this process is overly complex handling async events from one IP
 // would be much better synchronous and not having to track / guess where things are coming from
 // The event argument doesn't include any way to link it back to a particular hubAction request.
 def locationHandler(evt) {
 
-	log.trace "String value: " + evt.stringValue
+	log.trace "locationHandler Event: " + evt.stringValue 
+    //evt.stringValue and evt.description appear to be identical
 
 	def description = evt.description
 	def hub = evt?.hubId
@@ -435,31 +465,40 @@ def locationHandler(evt) {
 	def parsedEvent = parseEventMessage(description)
 	parsedEvent << ["hub":hub]
 
-    log.trace "Parsed event keys: " + parsedEvent.keySet()
+    //log.trace "Parsed event keys: " + parsedEvent.keySet()
+    
+    def hexIP = convertIPtoHex(userip)
+    def hexPort = convertPortToHex(userport)
 
-    if ((parsedEvent.ip == convertIPtoHex(userip)) && (parsedEvent.port == convertPortToHex(userport)))
+    log.trace "userip ${userip} userip as hex ${hexIP} userport ${userport} userport as hex ${hexPort}"
+
+    if ((parsedEvent.ip == hexIP) && (parsedEvent.port == hexPort))
     {
+    	log.info "Device Found.  Match Success. Matches DiskStation IP and Port: IP ${parsedEvent.ip} port ${parsedEvent.port}"
     	def bodyString = ""
         def body = null
 
         if (hub) { state.hub = hub }
 
         if (parsedEvent.headers && parsedEvent.body)
-        { // DS RESPONSES
+        { 
+        	log.trace "headers " + headers + " body " + body
+            // DS RESPONSES
             def headerString = new String(parsedEvent.headers.decodeBase64())
             bodyString = new String(parsedEvent.body.decodeBase64())
 
             def type = (headerString =~ /Content-Type:.*/) ? (headerString =~ /Content-Type:.*/)[0] : null
             log.trace "DISKSTATION REPONSE TYPE: $type"
+            log.trace "body ${bodyString}"
             if (type?.contains("text/plain"))
             {
             	log.trace bodyString
             	body = new groovy.json.JsonSlurper().parseText(bodyString)
             } else if (type?.contains("application/json")) {
-            	log.debug bodyString
+            	log.debug "application/json"
                 body = new groovy.json.JsonSlurper().parseText(bodyString)
             } else if (type?.contains("text/html")) {
-                log.trace bodyString
+                log.trace "text/html"
                 body = new groovy.json.JsonSlurper().parseText(bodyString.replaceAll("\\<.*?\\>", ""))
             } else {
                 // unexpected data type
@@ -490,7 +529,10 @@ def locationHandler(evt) {
                     return
                 }
             }
-   		}
+   		} else {
+        	log.trace "no header and body"
+            return
+        }
 
         // gathered our incoming command data, see what we have
         def commandType = determineCommandFromResponse(parsedEvent, bodyString, body)
@@ -575,6 +617,7 @@ def locationHandler(evt) {
                 // exit out, we've handled the message we wanted
 				return
             }
+            return
       	}
         // no master command waiting or not the one we wanted
         // is this a child message?
@@ -614,6 +657,9 @@ def locationHandler(evt) {
                         if (videoCodec == "MJPEG") { //Can't stream MJPEG - return error and revert to Live in child
                         	log.trace "MJPEG Stream found - cannot stream this AVI file)"
                         	it.seteventTime("MJPEG")
+                            // NOTE: TODO: If camear is set MJPED it records video in AVI which can't be streamed.  
+                            // Use H.264 to record in MP4 or use SYNO.SurveillanceStation.VideoStream API with parameter format=mjpeg
+                            // see https://global.download.synology.com/download/Document/DeveloperGuide/Surveillance_Station_Web_API_v2.0.pdf
                         } else {
                         	it.seteventTime(eventTime)
                         }
@@ -646,6 +692,7 @@ def locationHandler(evt) {
                         return finalizeChildCommand(commandInfo)
                 }
             }
+            return
         }
 
         // no one wants this type or unknown type
@@ -683,7 +730,9 @@ def locationHandler(evt) {
                 return
           	} else {
             	// if we get here, we likely just had a success for a message we don't care about
+                return
             }
+            return
         }
 
         // is this an empty GetSnapshot error?
@@ -702,11 +751,18 @@ def locationHandler(evt) {
                 }
                 return
             }
+            return
         }
 
         // why are we here?
         log.trace "Did not use " + bodyString
-   	}
+        return
+   	} else {
+    	log.warn "Device Found.  Match Failed. Doesn't match DiskStation IP and Port: IP ${parsedEvent.ip} port ${parsedEvent.port}"
+    	//log.trace "userip " + userip + " and userport " + userport + " as hex value are not the same as parseEvent ip and port"
+        return
+    }
+    return
 }
 
 
@@ -737,9 +793,11 @@ def handleErrors(commandData, errorData) {
 def checkForRedoLogin(commandData, errorData) {
 	if (errorData != null) {
         log.trace "errorData: " + errorData
-        if (errorData?.code == 102 || errorData?.code == 105) {
+        if (errorData?.code == 105) { //|| errorData?.code == 102 // this is wrong; 102 is invalid api
             log.trace "relogging in"
 			executeLoginCommand()
+        } else if (erorData?.code == 402) {
+        	log.info "Camera is disabled"
         } else {
         	if (commandData) {
             	state.error = "Error communicating with the Diskstation. Please check your settings and network connection. API = " + commandData.api + " command = " + commandData.command
@@ -754,7 +812,9 @@ def handleErrorsIgnore(commandData, errorData) {
 	if (errorData) {
 	        if (errorData?.code == 117) {
         	    log.debug "Error: Manager level access required to enable/disable cameras. Please elevate access in Surveillance Station."
-       		} else {
+       		} else if (erorData?.code == 402) {
+        		log.info "Camera is disabled"
+        	}  else {
     			log.trace "trying to handle error ${errorData}"
     		}
         }
@@ -821,21 +881,52 @@ private def parseEventMessage(String description) {
 				event.requestId = valueString
 			}
 		}
+        else if (part.startsWith('mac')) {
+        	part -= "mac:"
+            def valueString = part.trim()
+            if (valueString) {
+            	event.mac = valueString
+            }
+        }
 	}
 
 	event
 }
 
+private boolean isIP(String str)
+{
+    try
+    {
+         String[] parts = str.split("\\.");
+         //log.trace "ip address parts " + parts
+         if (parts.length != 4) return false;
+         for (int i = 0; i < 4; ++i)
+         {
+             int p = Integer.parseInt(parts[i]);
+             if (p > 255 || p < 0) return false;
+         }
+         return true;
+    } catch (Exception e)
+    {
+        return false;
+    }
+}
+
 private String convertIPtoHex(ipAddress) {
-    String hex = ipAddress.tokenize( '.' ).collect {  String.format( '%02x', it.toInteger() ) }.join()
-    hex = hex.toUpperCase()
+	String hex = ipAddress
+    if (isIP(ipAddress)) { // if ip address
+    	//log.trace "address is ip and not domain name"
+		hex = ipAddress.tokenize('.').collect {String.format('%02X', it.toInteger()) }.join() 
+		//log.info "hexIP ${hex} userip ${userip}"
+    }
     return hex
 }
 
 private String convertPortToHex(port) {
-	String hexport = port.toString().format( '%04x', port.toInteger() )
-    hexport = hexport.toUpperCase()
-    return hexport
+	//log.info "userport ${userport} port ${port}"
+	String hexPort = String.format('%04X', port.toInteger()) 
+	//log.info "hexPort ${hexPort} userport ${userport} port ${port}"
+    return hexPort
 }
 
 private String getDeviceId(ip, port) {
@@ -845,12 +936,12 @@ private String getDeviceId(ip, port) {
 }
 
 def installed() {
-	log.debug "Installed with settings: ${settings}"
+	//log.debug "Installed with settings: ${settings}" // logs sensitive data like credentials
 	initialize()
 }
 
 def updated() {
-	log.debug "Updated with settings: ${settings}"
+	//log.debug "Updated with settings: ${settings}" // logs sensitive data like credentials
 	initialize()
 }
 
@@ -866,7 +957,7 @@ def initialize() {
     }
 
     if(!state.subscribe) {
-        log.trace "subscribe to location"
+        log.trace "subscribe to location events"
         subscribe(location, null, locationHandler, [filterEvents:false])
         state.subscribe = true
     }
@@ -893,8 +984,12 @@ def addCameras() {
         def newCamera = state.SSCameraList.find { it.id.toString() == cameraIndex.toString() }
         log.trace "newCamera = " + newCamera
         if (newCamera != null) {
-            def newCameraDNI = createCameraDNI(newCamera)
+            log.info "camera mac ${newCamera.mac}"
+            // IP can change, so we should rescan every x minutes; maybe 5 for mac to ip chanes and update saved cameras.
+            def newCameraDNI = createCameraDNI(newCamera) // this should be mac and not a hex version of ip:port
             log.trace "newCameraDNI = " + newCameraDNI
+            log.trace "camera ${newCamera}"
+
             def d = getChildDevice(newCameraDNI)
             if(!d) {
                 d = addChildDevice("needlerp", "Diskstation Camera", newCameraDNI, state.hub, [label:"Diskstation ${newCamera?.name}"]) //, completedSetup: true
@@ -914,7 +1009,7 @@ def addCameras() {
 }
 
 def createDiskstationURL(Map commandData) {
-//	log.trace "createDiskstationURL"
+	log.trace "createDiskstationURL"
     String apipath = state.api.get(commandData.api)?.path
     if (apipath != null) {
 
@@ -923,6 +1018,7 @@ def createDiskstationURL(Map commandData) {
         if (!( (getUniqueCommand("SYNO.API.Info", "Query") == getUniqueCommand(commandData))
               || (getUniqueCommand("SYNO.API.Auth", "Login") == getUniqueCommand(commandData)) ) ) {
             session = "&_sid=" + state.sid
+            log.trace "session: ${state.sid}"
         }
 
          if ((state.api.get(commandData.api)?.minVersion <= commandData.version) && (state.api.get(commandData.api)?.maxVersion >= commandData.version)) {
@@ -941,7 +1037,12 @@ def createDiskstationURL(Map commandData) {
     return null
 }
 
+/**
+* Create and return hubAction which will Verify the discovered devices that are returned by Synology Surviellance Station.
+* Verifies device connectivity via UPNP on the LAN.
+*/
 def createHubAction(Map commandData) {
+	log.trace "createHubAction"
     String deviceNetworkId = getDeviceId(userip, userport)
     String ip = userip + ":" + userport
 
@@ -952,11 +1053,17 @@ def createHubAction(Map commandData) {
             if (commandData.acceptType) {
                 acceptType = commandData.acceptType
             }
+            
+            // If synology didn't return the camera IP addresses we would nee to
+            // scan for "lan discovery urn:schemas-upnp-org:device:DigitalSecurityCamera:1"
+            // see http://upnp.org/specs/ha/UPnP-ha-DigitalSecurityCamera-v1-Device.pdf
 
+			// this really is the UPNP verification step and we should scan UPNP first
             def hubaction = new physicalgraph.device.HubAction(
                 """GET ${url} HTTP/1.1\r\nHOST: ${ip}\r\nAccept: ${acceptType}\r\n\r\n""",
                 physicalgraph.device.Protocol.LAN, "${deviceNetworkId}") //, [callback: testHandler]) <-- the callback doesn't work
-
+			log.debug "hubaction verify device ${hubaction}"
+            
             if (getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetSnapshot") == getUniqueCommand(commandData)) {
             	if (state.doSnapshotResend) {
                 	state.doSnapshotResend = false
@@ -965,6 +1072,7 @@ def createHubAction(Map commandData) {
                 }
 
             }
+            //log.trace "UPNP scan for ${hubaction}" // logs sensitive data like credentials
             return hubaction
 
         } else {
@@ -979,7 +1087,7 @@ def createHubAction(Map commandData) {
 
 //Needlerp: create the URL to stream
 def createStreamURL(Map commandData, String location) {
-//	log.trace "createStreamURL"
+	log.trace "createStreamURL"
 
     String deviceNetworkId = getDeviceId(userip, userport)
     String ip = userip + ":" + userport
@@ -988,29 +1096,31 @@ def createStreamURL(Map commandData, String location) {
     try {
         def url = createDiskstationURL(commandData)
         if (url != null) {
-
+			log.trace "createStreamURL ${url}"
+            
 			if (location == "InHome") {
- //           log.trace "InHome"
-            def hubaction = new physicalgraph.device.HubAction(
-                """${ip}${url}""")
-//                log.trace hubaction
+            	log.trace "InHome"
+                def hubaction = new physicalgraph.device.HubAction(
+                    """${ip}${url}""")
+                log.trace "creating hubaction ${hubaction}"
             	return hubaction
-               } else {
-//               log.trace "OutHome"
+            } else {
+                log.trace "OutHome"
            		def hubaction = new physicalgraph.device.HubAction(
-               """${ipOutHome}${url}""")
- //              log.trace hubaction
+                	"""${ipOutHome}${url}""")
+                log.trace "hubaction url ${hubaction}"
             	return hubaction
-               }
+            }
 
 
         } else {
-        	return null
+        	log.trace "createStreamURL url is null"
         }
     }
     catch (Exception err) {
         log.debug "error sending message: " + err
     }
+    log.trace "createStreamURL final null"
     return null
 }
 
@@ -1023,7 +1133,7 @@ def sendDiskstationCommand(Map commandData) {
 }
 
 def createCommandData(String api, String command, String params, int version) {
-//	log trace "createCommandData"
+	//log.trace "createCommandData"
     def commandData = [:]
     commandData.put('api', api)
     commandData.put('command', command)
@@ -1034,14 +1144,13 @@ def createCommandData(String api, String command, String params, int version) {
     if (getUniqueCommand("SYNO.SurveillanceStation.Camera", "GetSnapshot") == getUniqueCommand(commandData)) {
 		commandData.put('acceptType', "image/jpeg");
     }
-//	log.trace "commandData: " + commandData
+	//log.trace "commandData: " + commandData
     return commandData
 }
 
 def queueDiskstationCommand(String api, String command, String params, int version) {
-    log.trace "queing command " + command
-
     def commandData = createCommandData(api, command, params, version)
+    //log.trace "commandData " + commandData // logs sensitive data like credentials contained in params variable
 
     if (doesCommandReturnData(getUniqueCommand(commandData))) {
     	// queue since we get data
@@ -1063,6 +1172,7 @@ def queueDiskstationCommand(String api, String command, String params, int versi
 }
 
 def finalizeDiskstationCommand() {
+	//ssdpDiscover();
 	//log.trace "removing " + state.commandList.first().command
     state.commandList.remove(0)
 
@@ -1080,7 +1190,7 @@ private def clearDiskstationCommandQueue() {
 }
 
 def webNotifyCallback() {
-//	log.trace "motion callback"
+	log.trace "motion callback"
 
     if (params?.msg?.contains("Test")) {
     	state.motionTested = true
@@ -1121,7 +1231,8 @@ def webNotifyCallback() {
 def doAndScheduleHandleMotion() {
 	handleMotionCleanup()
     // This orverwrites any other scheduled event.  We'll only get one extra call to handleMotion this way.
-	runEvery5Minutes( "handleMotionCleanup" )
+	//runEvery1Minute( "handleMotionCleanup" )
+    runEvery5Minutes( "handleMotionCleanup" )
 }
 
 // Deactivate the cameras is the motion event is old.  Runs itself again in the least time left.
